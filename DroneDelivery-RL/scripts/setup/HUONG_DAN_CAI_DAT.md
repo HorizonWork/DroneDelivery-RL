@@ -70,7 +70,6 @@ bash Miniconda3-latest-MacOSX-x86_64.sh
 ```
 
 Windows: Download và chạy installer từ conda.io
-text
 
 #### Bước 2: Cài đặt system packages
 Ubuntu/Debian
@@ -100,7 +99,7 @@ conda create -n drone_delivery_rl python=3.9 -y
 conda activate drone_delivery_rl
 ```
 
-text
+Windows: Không cần (Python packages sẽ handle)
 
 #### Bước 4: Cài đặt dependencies
 Chạy script install dependencies
@@ -109,7 +108,6 @@ bash scripts/setup/install_dependencies.sh
 ```
 
 Hoặc manual install packages (xem requirements trong script)
-text
 
 #### Bước 5: Verify installation
 Kiểm tra cài đặt
@@ -153,7 +151,7 @@ DroneDelivery-RL/
 │ └── visualizations/ # Plots và charts
 └── 📁 logs/ # System logs
 
-text
+Windows: Không cần (Python packages sẽ handle)
 
 ---
 
@@ -180,7 +178,7 @@ Windows: Không cần (Python packages sẽ handle)
 conda activate drone_delivery_rl
 pip install jupyter notebook ipython black flake8 pytest
 ```
-Windows: Không cần (Python packages sẽ handle)
+Windows: Không cần (Python packages will handle)
 
 
 ### Cài đặt optional packages:
@@ -198,7 +196,7 @@ Cho experiment tracking
 ```bash
 pip install mlflow neptune-client
 ```
-Windows: Không cần (Python packages sẽ handle)
+Windows: Không cần (Python packages will handle)
 
 
 ---
@@ -216,7 +214,7 @@ Chạy verification script
 python scripts/setup/verify_installation.py
 ```
 
-Windows: Không cần (Python packages sẽ handle)
+Windows: Không cần (Python packages will handle)
 
 ### Test advanced:
 Test environment creation
@@ -243,7 +241,7 @@ print('✅ Complete system integration successful')
 print(f'System status: {system.get_system_status()}')
 "
 
-Windows: Không cần (Python packages sẽ handle)
+Windows: Không cần (Python packages will handle)
 
 ### Kết quả mong đợi:
 🔍 VERIFYING DRONEDELIVERY-RL INSTALLATION
@@ -315,7 +313,7 @@ source ~/.bashrc
 Hoặc
 exec bash
 
-Windows: Không cần (Python packages sẽ handle)
+Windows: Không cần (Python packages will handle)
 
 ### Lỗi 2: "Permission denied" khi install system packages
 Ubuntu: Cần sudo
@@ -539,15 +537,17 @@ Windows: Không cần (Python packages will handle)
 
 ### Development mode setup:
 Thêm development tools
+```bash
 conda activate drone_delivery_rl
-pip install
-jupyter
-notebook
-ipython
-black
-flake8
-pytest
+pip install \
+jupyter \
+notebook \
+ipython \
+black \
+flake8 \
+pytest \
 pytest-cov
+```
 
 Windows: Không cần (Python packages will handle)
 
@@ -609,7 +609,7 @@ print(f'CPU matrix mult: {(time.time()-t)*1000:.2f}ms')
 "
 ```
 
-text
+Windows: Không cần (Python packages will handle)
 
 ---
 
@@ -677,7 +677,7 @@ Hoặc test package download
 pip install --dry-run torch
 ```
 
-text
+Windows: Không cần (Python packages will handle)
 
 ### Contact và Support:
 
