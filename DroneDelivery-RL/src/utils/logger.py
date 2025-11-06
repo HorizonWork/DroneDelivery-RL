@@ -1,0 +1,6 @@
+"""
+System logging utilities
+""",
+class Logger:
+    def __init__(self):
+        pass

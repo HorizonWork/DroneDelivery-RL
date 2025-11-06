@@ -1,0 +1,7 @@
+{
+  "physics": {
+    "gravity": -9.8,
+    "air_density": 1.225,
+    "wind_speed": 0.0
+  }
+}

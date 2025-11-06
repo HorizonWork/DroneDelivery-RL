@@ -1,0 +1,14 @@
+scenarios:
+  - name: "single_floor_static"
+    floors_active: 1
+    dynamic_obstacles: false
+    episodes: 10
+  - name: "two_floors_dynamic"
+    floors_active: 2
+    dynamic_obstacles: true
+    episodes: 200
+  - name: "five_floors_full"
+    floors_active: 5
+    dynamic_obstacles: true
+    episodes: 300
+metrics: ["success_rate","collision_rate","energy_mean","time_mean","ate_mean"]

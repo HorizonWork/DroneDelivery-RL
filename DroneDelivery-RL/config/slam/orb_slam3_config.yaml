@@ -1,0 +1,25 @@
+mode: stereo-inertial
+topics:
+  left: "/airsim_node/Drone0/front_left/Image"
+  right: "/airsim_node/Drone0/front_right/Image"
+  imu: "/airsim_node/Drone0/Imu"
+rates_hz:
+  camera: 30
+  imu: 200
+tracking:
+  enable_loop_closure: true
+  map_merging: true
+  relocalization: true
+ use_viewer: false
+  keyframe_stride: 1
+optimization:
+  use_imu: true
+  init_with_gyro: true
+  ceres_iterations: 10
+outputs:
+  pose_topic: "/slam/pose"
+  map_points_topic: "/slam/map_points"
+  ate_topic: "/slam/ate"
+export:
+  save_trajectory_tum: "data/slam/trajectories/trajectory.tum"
+  save_map: "data/slam/maps/map.bin"

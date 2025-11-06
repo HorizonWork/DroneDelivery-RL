@@ -1,0 +1,53 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ClockSpeed": 1.0,
+  "ViewMode": "NoDisplay",
+  "Vehicles": {
+    "Drone0": {
+      "VehicleType": "SimpleFlight",
+      "DefaultVehicleState": "Armed",
+      "EnableCollisionPassthrough": false,
+      "EnableTrace": false,
+      "X": 6000.0,
+      "Y": -3000.0,
+      "Z": 300.0,
+      "Pitch": 0.0,
+      "Roll": 0.0,
+      "Yaw": 0.0,
+      "Cameras": {
+        "front_left": {
+          "CaptureSettings": [
+            { "ImageType": 0, "Width": 640, "Height": 480, "FOV_Degrees": 90.0, "TargetGamma": 2.2 }
+          ],
+          "X": 0.1, "Y": -0.05, "Z": -0.02, "Pitch": 0, "Roll": 0, "Yaw": 0
+        },
+        "front_right": {
+          "CaptureSettings": [
+            { "ImageType": 0, "Width": 640, "Height": 480, "FOV_Degrees": 90.0, "TargetGamma": 2.2 }
+          ],
+          "X": 0.1, "Y": 0.05, "Z": -0.02, "Pitch": 0, "Roll": 0, "Yaw": 0
+        },
+        "depth": {
+          "CaptureSettings": [
+            { "ImageType": 3, "Width": 640, "Height": 480, "FOV_Degrees": 90.0 }
+          ],
+          "X": 0.1, "Y": 0.0, "Z": -0.02, "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "Sensors": {
+        "Barometer": { "SensorType": 1, "Enabled": true },
+        "Imu": { "SensorType": 2, "Enabled": true, "UpdateFrequency": 200.0 },
+        "Magnetometer": { "SensorType": 3, "Enabled": false },
+        "Gps": { "SensorType": 5, "Enabled": false }
+      }
+    }
+  },
+  "CameraDefaults": {
+    "CaptureSettings": [
+      { "ImageType": 0, "Width": 640, "Height": 480, "FOV_Degrees": 90.0, "MotionBlurAmount": 0 }
+    ]
+  },
+  "SubWindows": [],
+ "Recording": { "RecordOnMove": false, "RecordInterval": 0.05 }
+}

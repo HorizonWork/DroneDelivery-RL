@@ -1,0 +1,29 @@
+{
+  "building": {
+    "floors": 5,
+    "floor_dimensions_m": { "length": 20.0, "width": 40.0, "height": 3.0 },
+    "cell_size_m": 0.5,
+    "total_cells": 4000,
+    "vertical_connectors": ["stair_core_nw", "elevator_core_nw"]
+  },
+  "spawn": { "name": "DroneSpawn", "location_world": [6000.0, -3000.0, 300.0] },
+  "targets": {
+    "floor_1": ["Landing_101","Landing_102","Landing_103","Landing_104","Landing_105","Landing_106"],
+    "floor_2": ["Landing_201","Landing_202","Landing_203","Landing_204","Landing_205","Landing_206"],
+    "floor_3": ["Landing_301","Landing_302","Landing_303","Landing_304","Landing_305","Landing_306"],
+    "floor_4": ["Landing_401","Landing_402","Landing_403","Landing_404","Landing_405","Landing_406"],
+    "floor_5": ["Landing_501","Landing_502","Landing_503","Landing_504","Landing_505","Landing_506"]
+  },
+  "dynamic_obstacles": {
+    "enabled": true,
+    "agents": 12,
+    "speed_mps_range": [0.8, 1.5],
+    "behavior": "corridor_walk"
+  },
+  "drone_specs": {
+    "mass_kg": 1.5,
+    "max_thrust_per_motor_N": 15.0,
+    "max_translational_speed_mps": 5.0,
+    "num_rotors": 4
+  }
+}

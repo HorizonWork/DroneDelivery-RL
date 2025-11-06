@@ -1,0 +1,17 @@
+baselines:
+  - name: "A*_PID"
+    global_planner: "astar"
+    local_planner: "none"
+    controller: "pid"
+  - name: "RRT*_PID"
+    global_planner: "rrt_star"
+    local_planner: "none"
+    controller: "pid"
+  - name: "Random"
+    global_planner: "none"
+    local_planner: "none"
+    controller: "random"
+ppo_eval:
+  deterministic: true
+episodes: 200
+seed: 42

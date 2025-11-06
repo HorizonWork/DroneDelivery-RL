@@ -1,0 +1,8 @@
+success_rate_percent: 96
+energy_joules_mean: 610
+energy_joules_tolerance: 30
+flight_time_seconds_mean: 31
+flight_time_seconds_tolerance: 7
+collision_rate_percent_max: 1.0
+ate_meters_mean: 0.08
+ate_meters_tolerance: 0.02
