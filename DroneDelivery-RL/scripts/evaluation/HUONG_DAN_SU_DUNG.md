@@ -33,16 +33,19 @@ Di chuyển đến thư mục gốc của project
 cd DroneDelivery-RL/
 
 Kích hoạt Python environment (nếu có)
+```bash
 source venv/bin/activate # Linux/Mac
 venv\Scripts\activate # Windows
-text
+```
 
 ### Bước 2: Đánh giá các phương pháp baseline
 Chạy benchmark cho A* Only, RRT+PID, Random Policy
-python scripts/evaluation/benchmark_baselines.py
---config config/evaluation_config.yaml
---episodes 100
+```bash
+python scripts/evaluation/benchmark_baselines.py \
+--config config/evaluation_config.yaml \
+--episodes 100 \
 --output results/baseline_benchmark.json
+```
 
 Kết quả: Tạo dữ liệu baseline cho Table 3
 
@@ -50,12 +53,14 @@ Kết quả: Tạo dữ liệu baseline cho Table 3
 
 ### Bước 3: Đánh giá mô hình PPO đã huấn luyện
 Đánh giá mô hình PPO với 100 episodes
-python scripts/evaluation/evaluate_model.py
---config config/evaluation_config.yaml
---model models/checkpoints/ppo_final.pt
---episodes 100
---output results/model_evaluation.json
+```bash
+python scripts/evaluation/evaluate_model.py \
+--config config/evaluation_config.yaml \
+--model models/checkpoints/ppo_final.pt \
+--episodes 100 \
+--output results/model_evaluation.json \
 --visualize
+```
 
 Kết quả: Dữ liệu PPO cho Table 3 + phân tích chi tiết
 
@@ -64,36 +69,44 @@ Kết quả: Dữ liệu PPO cho Table 3 + phân tích chi tiết
 
 ### Bước 4: Kiểm tra độ bền vững với các kịch bản khắc nghiệt
 Chạy 8 kịch bản test khác nhau
-python scripts/evaluation/run_test_scenarios.py
---config config/evaluation_config.yaml
---model models/checkpoints/ppo_final.pt
+```bash
+python scripts/evaluation/run_test_scenarios.py \
+--config config/evaluation_config.yaml \
+--model models/checkpoints/ppo_final.pt \
 --output results/scenario_testing.json
+```
 
 Hoặc chỉ chạy một số kịch bản cụ thể:
-python scripts/evaluation/run_test_scenarios.py
---model models/checkpoints/ppo_final.pt
---scenarios nominal high_obstacle_density multi_floor_stress
+```bash
+python scripts/evaluation/run_test_scenarios.py \
+--model models/checkpoints/ppo_final.pt \
+--scenarios nominal high_obstacle_density multi_floor_stress \
 --output results/scenario_testing.json
+```
 
 
 **Thời gian dự kiến**: ~45-60 phút (8 kịch bản)
 
 ### Bước 5: Kiểm tra tuân thủ mục tiêu nghiên cứu
 Kiểm tra compliance với các target từ báo cáo
-python scripts/evaluation/validate_performance.py
---evaluation results/model_evaluation.json
---baselines results/baseline_benchmark.json
+```bash
+python scripts/evaluation/validate_performance.py \
+--evaluation results/model_evaluation.json \
+--baselines results/baseline_benchmark.json \
 --output results/performance_validation.json
+```
 
 
 **Thời gian dự kiến**: ~2-3 phút
 
 ### Bước 6: Tạo báo cáo đánh giá hoàn chỉnh
 Tạo báo cáo final với Table 3 và phân tích chi tiết
-python scripts/evaluation/generate_report.py
---evaluation results/model_evaluation.json
---baselines results/baseline_benchmark.json
+```bash
+python scripts/evaluation/generate_report.py \
+--evaluation results/model_evaluation.json \
+--baselines results/baseline_benchmark.json \
 --output results/evaluation_report.txt
+```
 
 
 **Thời gian dự kiến**: ~1-2 phút
@@ -133,19 +146,27 @@ Giảm va chạm: 91.3%
 
 ### Điều chỉnh số episodes:
 Evaluation nhanh (ít episodes hơn)
+```bash
 python scripts/evaluation/evaluate_model.py --episodes 50
+```
 
 Evaluation chi tiết (nhiều episodes hơn)
+```bash
 python scripts/evaluation/evaluate_model.py --episodes 200
+```
 
 ### Chọn scenarios cụ thể:
 Chỉ test các scenario quan trọng
-python scripts/evaluation/run_test_scenarios.py
+```bash
+python scripts/evaluation/run_test_scenarios.py \
 --scenarios nominal high_obstacle_density multi_floor_stress
+```
 
 ### Sử dụng config file khác:
-python scripts/evaluation/evaluate_model.py
+```bash
+python scripts/evaluation/evaluate_model.py \
 --config config/custom_evaluation.yaml
+```
 
 ---
 
@@ -188,11 +209,15 @@ python scripts/evaluation/evaluate_model.py
 
 ### Lỗi "Model file not found":
 Kiểm tra đường dẫn model
+```bash
 ls -la models/checkpoints/
+```
 
 Hoặc sử dụng đường dẫn đầy đủ
-python scripts/evaluation/evaluate_model.py
+```bash
+python scripts/evaluation/evaluate_model.py \
 --model /absolute/path/to/model.pt
+```
 
 ### Lỗi "Configuration file not found":
 Tạo config file mặc định
@@ -202,12 +227,16 @@ cp config/default_evaluation.yaml config/evaluation_config.yaml
 
 ### Lỗi "CUDA out of memory":
 Giảm batch size trong config hoặc sử dụng CPU
+```bash
 export CUDA_VISIBLE_DEVICES=""
 python scripts/evaluation/evaluate_model.py --episodes 50
+```
 
 ### Lỗi "Environment initialization failed":
 Kiểm tra dependencies
+```bash
 pip install gymnasium pybullet numpy torch
+```
 
 ---
 
