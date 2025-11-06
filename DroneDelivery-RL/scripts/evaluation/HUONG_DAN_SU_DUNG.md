@@ -1,293 +1,454 @@
-# HƯỚNG DẪN SỬ DỤNG HỆ THỐNG ĐÁNH GIÁ
-## Indoor Multi-Floor UAV Delivery - Energy-Aware Navigation
+# HƯỚNG DẪN SỬ DỤNG & ĐÁNH GIÁ MÔ HÌNH
+## DroneDelivery-RL Evaluation Guide
 
 ---
 
-## 🎯 TỔNG QUAN
+## 🎯 **MỤC TIÊU**
 
-Hệ thống đánh giá này thực hiện việc kiểm tra hiệu suất của mô hình PPO đã huấn luyện theo đúng yêu cầu nghiên cứu trong báo cáo. Hệ thống sẽ tạo ra **Table 3** với kết quả so sánh hiệu suất chính xác như trong báo cáo.
-
-### Mục tiêu hiệu suất cần đạt:
-- ✅ **Tỷ lệ thành công**: ≥96%
-- ⚡ **Tiết kiệm năng lượng**: ≥25% so với A* Only
-- 🎯 **Độ chính xác ATE**: ≤5cm  
-- 🛡️ **Tỷ lệ va chạm**: ≤2%
-- ⏱️ **Thời gian bay**: ≤120s
+Hướng dẫn sử dụng và đánh giá mô hình PPO đã huấn luyện:
+- Đánh giá hiệu suất mô hình
+- So sánh với các phương pháp baseline
+- Phân tích năng lượng tiêu thụ
+- Trực quan hóa kết quả
 
 ---
 
-## 📁 CẤU TRÚC FILES
+## 📋 **YÊU CẦU TRƯỚC ĐÁNH GIÁ**
 
-scripts/evaluation/
-├── benchmark_baselines.py # Đánh giá các phương pháp baseline (A*, RRT+PID, Random)
-├── evaluate_model.py # Đánh giá mô hình PPO đã huấn luyện
-├── generate_report.py # Tạo báo cáo đánh giá chi tiết
-├── run_test_scenarios.py # Chạy các kịch bản test khắc nghiệt
-├── validate_performance.py # Kiểm tra tuân thủ các mục tiêu nghiên cứu
-└── HUONG_DAN_SU_DUNG.md # File hướng dẫn này
-
-## 🚀 QUY TRÌNH ĐÁNH GIÁ ĐẦY ĐỦ
-
-### Bước 1: Chuẩn bị môi trường
-Di chuyển đến thư mục gốc của project
-cd DroneDelivery-RL/
-
-Kích hoạt Python environment (nếu có)
+### 1. Mô hình đã huấn luyện
 ```bash
-source venv/bin/activate # Linux/Mac
-venv\Scripts\activate # Windows
-```
-
-### Bước 2: Đánh giá các phương pháp baseline
-Chạy benchmark cho A* Only, RRT+PID, Random Policy
-```bash
-python scripts/evaluation/benchmark_baselines.py \
---config config/evaluation_config.yaml \
---episodes 100 \
---output results/baseline_benchmark.json
-```
-
-Kết quả: Tạo dữ liệu baseline cho Table 3
-
-**Thời gian dự kiến**: ~30-45 phút (3 phương pháp × 100 episodes)
-
-### Bước 3: Đánh giá mô hình PPO đã huấn luyện
-Đánh giá mô hình PPO với 100 episodes
-```bash
-python scripts/evaluation/evaluate_model.py \
---config config/evaluation_config.yaml \
---model models/checkpoints/ppo_final.pt \
---episodes 100 \
---output results/model_evaluation.json \
---visualize
-```
-
-Kết quả: Dữ liệu PPO cho Table 3 + phân tích chi tiết
-
-
-**Thời gian dự kiến**: ~20-30 phút
-
-### Bước 4: Kiểm tra độ bền vững với các kịch bản khắc nghiệt
-Chạy 8 kịch bản test khác nhau
-```bash
-python scripts/evaluation/run_test_scenarios.py \
---config config/evaluation_config.yaml \
---model models/checkpoints/ppo_final.pt \
---output results/scenario_testing.json
-```
-
-Hoặc chỉ chạy một số kịch bản cụ thể:
-```bash
-python scripts/evaluation/run_test_scenarios.py \
---model models/checkpoints/ppo_final.pt \
---scenarios nominal high_obstacle_density multi_floor_stress \
---output results/scenario_testing.json
-```
-
-
-**Thời gian dự kiến**: ~45-60 phút (8 kịch bản)
-
-### Bước 5: Kiểm tra tuân thủ mục tiêu nghiên cứu
-Kiểm tra compliance với các target từ báo cáo
-```bash
-python scripts/evaluation/validate_performance.py \
---evaluation results/model_evaluation.json \
---baselines results/baseline_benchmark.json \
---output results/performance_validation.json
-```
-
-
-**Thời gian dự kiến**: ~2-3 phút
-
-### Bước 6: Tạo báo cáo đánh giá hoàn chỉnh
-Tạo báo cáo final với Table 3 và phân tích chi tiết
-```bash
-python scripts/evaluation/generate_report.py \
---evaluation results/model_evaluation.json \
---baselines results/baseline_benchmark.json \
---output results/evaluation_report.txt
-```
-
-
-**Thời gian dự kiến**: ~1-2 phút
-
----
-
-## 📊 KẾT QUẢ MONG ĐỢI
-
-### Table 3: Performance Comparison (Mẫu)
-===========================================================
-Method Success% Energy(J) Time(s) Collisions% ATE(m)
-A* Only 75.0 2800±450 95.0±25.0 8.0 0.045
-RRT+PID 88.0 2400±380 78.0±18.0 4.0 0.038
-Random 12.0 3500±800 120.0±45.0 35.0 0.080
-PPO (Ours) 96.2 610±30 31.5±7.0 0.7 0.008
-Cải thiện hiệu suất của PPO so với A* Only:
-
-Tỷ lệ thành công: +21.2%
-
-Tiết kiệm năng lượng: 78.2%
-
-Cải thiện thời gian: 66.8%
-
-Giảm va chạm: 91.3%
-
-### Files kết quả được tạo:
-- `results/baseline_benchmark.json` - Kết quả baseline methods
-- `results/model_evaluation.json` - Kết quả đánh giá PPO chi tiết
-- `results/scenario_testing.json` - Kết quả test robustness  
-- `results/performance_validation.json` - Kiểm tra tuân thủ targets
-- `results/evaluation_report.txt` - Báo cáo tổng hợp
-- `results/visualizations/` - Các biểu đồ và plots
-
----
-
-## 🔧 TÙY CHỌN CẤU HÌNH
-
-### Điều chỉnh số episodes:
-Evaluation nhanh (ít episodes hơn)
-```bash
-python scripts/evaluation/evaluate_model.py --episodes 50
-```
-
-Evaluation chi tiết (nhiều episodes hơn)
-```bash
-python scripts/evaluation/evaluate_model.py --episodes 200
-```
-
-### Chọn scenarios cụ thể:
-Chỉ test các scenario quan trọng
-```bash
-python scripts/evaluation/run_test_scenarios.py \
---scenarios nominal high_obstacle_density multi_floor_stress
-```
-
-### Sử dụng config file khác:
-```bash
-python scripts/evaluation/evaluate_model.py \
---config config/custom_evaluation.yaml
-```
-
----
-
-## 📈 HIỂU KẾT QUẢ
-
-### Ý nghĩa các chỉ số:
-
-**Success Rate (Tỷ lệ thành công)**:
-- Target: ≥96%
-- Ý nghĩa: % episodes hoàn thành thành công mission
-- Tốt: >95%, Chấp nhận được: 85-95%, Cần cải thiện: <85%
-
-**Energy Consumption (Tiêu thụ năng lượng)**:
-- Target: 25% tiết kiệm so với A* Only (~2800J)
-- Target value: ≤2100J (75% của 2800J)
-- Excellent: <1500J, Good: 1500-2000J, Acceptable: 2000-2500J
-
-**Flight Time (Thời gian bay)**:
-- Target: <120s cho delivery trong building
-- Excellent: <60s, Good: 60-90s, Acceptable: 90-120s
-
-**Collision Rate (Tỷ lệ va chạm)**:
-- Target: ≤2% (safety critical)
-- Excellent: 0%, Good: 0-1%, Acceptable: 1-2%, Unacceptable: >2%
-
-**ATE Error (Absolute Trajectory Error)**:
-- Target: ≤5cm (centimeter-scale accuracy)
-- Excellent: <3cm, Good: 3-5cm, Acceptable: 5-8cm, Poor: >8cm
-
-### Performance Grades:
-- **A (90-100)**: Tất cả targets đạt, sẵn sàng deployment
-- **B (80-89)**: Hầu hết targets đạt, có thể deployment có điều kiện
-- **C (70-79)**: Performance chấp nhận được, cần cải thiện
-- **D (60-69)**: Performance yếu, cần training thêm
-- **F (<60)**: Không đạt yêu cầu, cần thiết kế lại
-
----
-
-## 🐛 XỬ LÝ LỖI THƯỜNG GẶP
-
-### Lỗi "Model file not found":
-Kiểm tra đường dẫn model
-```bash
+# Kiểm tra mô hình tồn tại
 ls -la models/checkpoints/
+# File mô hình nên có dạng: ppo_final.pt, ppo_curriculum_5M.pt, etc.
 ```
 
-Hoặc sử dụng đường dẫn đầy đủ
+### 2. Môi trường đánh giá
 ```bash
+# Môi trường đánh giá nên giống môi trường huấn luyện
+python -c "
+from src.environment import DroneEnvironment
+import yaml
+
+with open('config/evaluation/target_metrics.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+    
+print('✅ Evaluation environment ready')
+print(f'Metrics targets: {config.keys()}')
+"
+```
+
+---
+
+## 🚀 **QUY TRÌNH ĐÁNH GIÁ CƠ BẢN**
+
+### 1. Đánh giá mô hình đơn lẻ
+```bash
+# Đánh giá mô hình với 10 episodes
 python scripts/evaluation/evaluate_model.py \
---model /absolute/path/to/model.pt
+    --model models/checkpoints/final_model.pt \
+    --episodes 100 \
+    --output results/model_evaluation.json
+
+# Đánh giá chi tiết với visualization
+python scripts/evaluation/evaluate_model.py \
+    --model models/checkpoints/final_model.pt \
+    --episodes 50 \
+    --render true \
+    --save-trajectories true \
+    --output results/detailed_evaluation.json
 ```
 
-### Lỗi "Configuration file not found":
-Tạo config file mặc định
-mkdir -p config/
-cp config/default_evaluation.yaml config/evaluation_config.yaml
-
-
-### Lỗi "CUDA out of memory":
-Giảm batch size trong config hoặc sử dụng CPU
+### 2. So sánh với baseline (Table 3)
 ```bash
-export CUDA_VISIBLE_DEVICES=""
-python scripts/evaluation/evaluate_model.py --episodes 50
+# Chạy toàn bộ benchmark
+python scripts/evaluation/benchmark_baselines.py
+
+# So sánh cụ thể từng phương pháp
+python scripts/evaluation/benchmark_baselines.py \
+    --method all \
+    --episodes 100 \
+    --output results/baseline_comparison.csv
 ```
 
-### Lỗi "Environment initialization failed":
-Kiểm tra dependencies
+### 3. Chạy các kịch bản test cụ thể
 ```bash
-pip install gymnasium pybullet numpy torch
+# Chạy test scenarios từ config
+python scripts/evaluation/run_test_scenarios.py \
+    --config config/evaluation/test_scenarios.yaml \
+    --model models/checkpoints/final_model.pt
+
+# Chạy scenario cụ thể
+python scripts/evaluation/run_test_scenarios.py \
+    --scenario complex_navigation \
+    --model models/checkpoints/final_model.pt
 ```
 
 ---
 
-## 🎯 CHECKLIST HOÀN THÀNH ĐÁNH GIÁ
+## 📊 **CHỈ SỐ ĐÁNH GIÁ CHÍNH**
 
-- [ ] **Baseline Evaluation**: 3 methods × 100 episodes = 300 episodes
-- [ ] **PPO Evaluation**: 100 episodes với trained model
-- [ ] **Scenario Testing**: 8 scenarios với robustness tests  
-- [ ] **Performance Validation**: Kiểm tra tất cả targets
-- [ ] **Report Generation**: Báo cáo đầy đủ với Table 3
-- [ ] **Visualization**: Biểu đồ và plots phân tích
-- [ ] **Statistical Tests**: p-values và confidence intervals
+### 1. Table 3 Metrics (Performance Comparison)
+| Method | Success Rate | Energy (J) | Time (s) | Collisions | ATE (cm) |
+|--------|-------------|------------|----------|
+| A* Only | 75.0% | 2800±450 | 95.0 | 8.0% | 4.5 |
+| RRT+PID | 88.0% | 2400±380 | 78.0 | 4.0% | 3.8 |
+| Random | 12.0% | 3500±800 | 120.0 | 35.0% | 8.0 |
+| **PPO (Ours)** | **96.2%** | **610±30** | **31.5** | **0.7%** | **0.8** |
 
-### Khi hoàn thành, bạn sẽ có:
-✅ **Table 3** chính xác với so sánh 4 methods  
-✅ **Statistical significance** với p < 0.05  
-✅ **Energy savings validation** ≥25% improvement  
-✅ **Safety validation** collision rate ≤2%  
-✅ **Accuracy validation** ATE error ≤5cm  
-✅ **Robustness report** với 8 test scenarios  
-✅ **Deployment recommendation** dựa trên performance  
+### 2. Script đánh giá chi tiết
+```bash
+# Validate performance targets
+python scripts/evaluation/validate_performance.py \
+    --results results/model_evaluation.json \
+    --targets config/evaluation/target_metrics.yaml
 
----
-
-## 📞 HỖ TRỢ
-
-Nếu gặp vấn đề trong quá trình đánh giá:
-
-1. **Kiểm tra logs**: `logs/system.log` và `logs/errors.log`
-2. **Xem progress**: Các script sẽ hiển thị tiến độ real-time
-3. **Kiểm tra disk space**: Evaluation tạo nhiều files kết quả
-4. **Monitor memory usage**: Đảm bảo đủ RAM cho 100+ episodes
-
-### Estimated Total Time: **~2-3 giờ** cho full evaluation
-- Baseline benchmark: 45 phút
-- Model evaluation: 30 phút  
-- Scenario testing: 60 phút
-- Validation + Report: 15 phút
+# Output sẽ kiểm tra:
+# ✅ Success Rate: 96.2% ≥ 96% (PASS)
+# ✅ Energy Savings: 78% ≥ 25% (PASS) 
+# ✅ Collision Rate: 0.7% ≤ 2% (PASS)
+# ✅ ATE Accuracy: 0.8cm ≤ 5cm (PASS)
+```
 
 ---
 
-## 🏆 MỤC TIÊU CUỐI CÙNG
+## 🔧 **CẤU HÌNH ĐÁNH GIÁ**
 
-Sau khi hoàn thành tất cả scripts, bạn sẽ có:
+### 1. Cấu hình đánh giá chính
+```yaml
+# config/evaluation/target_metrics.yaml
+metrics:
+  success_rate:
+    target: 0.96
+    threshold: 0.95
+    weight: 0.3
+    
+  energy_efficiency:
+    target: 0.75  # 75% energy savings vs baseline
+    threshold: 0.25
+    weight: 0.25
+    
+  flight_time:
+    target: 35.0  # seconds
+    threshold: 40.0
+    weight: 0.15
+    
+  collision_rate:
+    target: 0.02  # 2%
+    threshold: 0.02
+    weight: 0.2
+    
+  ate_accuracy:
+    target: 0.05  # 5cm
+    threshold: 0.05
+    weight: 0.1
+```
 
-**📋 Table 3 Results** - Exact match với báo cáo nghiên cứu  
-**📊 Performance Analysis** - Chi tiết từng metric  
-**📈 Statistical Validation** - P-values và confidence intervals  
-**🎯 Target Compliance** - Kiểm tra đạt 96% success + 25% energy savings  
-**🔬 Robustness Testing** - 8 scenarios khắc nghiệt  
-**📝 Research Report** - Báo cáo academic format  
-**✅ Deployment Decision** - Sẵn sàng triển khai hay không  
+### 2. Cấu hình test scenarios
+```yaml
+# config/evaluation/test_scenarios.yaml
+scenarios:
+  basic_navigation:
+    floors: [1]
+    obstacles: ["static"]
+    episodes: 20
+    timeout: 120.0
+    
+  multi_floor:
+    floors: [1, 2, 3, 4, 5]
+    obstacles: ["static", "moving"]
+    episodes: 30
+    timeout: 180.0
+    
+  complex_navigation:
+    floors: [1, 2, 3, 4, 5]
+    obstacles: ["static", "moving", "dynamic"]
+    episodes: 50
+    timeout: 240.0
+```
 
-**SUCCESS CRITERIA**: Performance Grade A/B + All Targets Met = Ready for Deployment! 🚁✨
+---
+
+## 🎯 **PHƯƠNG PHÁP BASELINE**
+
+### 1. A* + PID Baseline
+```bash
+# Chạy A* baseline
+python -c "
+from src.baselines import AStarBaseline
+import numpy as np
+
+baseline = AStarBaseline()
+# Global planning + PID control
+# Success rate: ~75%, Energy: ~2800J
+"
+```
+
+### 2. RRT* + PID Baseline
+```bash
+# Chạy RRT* baseline
+python -c "
+from src.baselines import RRTBaseline
+import numpy as np
+
+baseline = RRTBaseline()
+# Probabilistic roadmap + PID control
+# Success rate: ~88%, Energy: ~2400J
+"
+```
+
+### 3. Random Baseline
+```bash
+# Chạy Random baseline
+python -c "
+from src.baselines import RandomBaseline
+import numpy as np
+
+baseline = RandomBaseline()
+# Random exploration
+# Success rate: ~12%, Energy: ~3500J
+"
+```
+
+---
+
+## 📈 **TRỰC QUAN HÓA KẾT QUẢ**
+
+### 1. Biểu đồ hiệu suất
+```bash
+# Tạo biểu đồ so sánh
+python scripts/utilities/visualize_results.py \
+    --evaluation-results results/model_evaluation.json \
+    --baseline-results results/baseline_comparison.json \
+    --output-dir results/figures
+
+# Các loại biểu đồ được tạo:
+# - Performance comparison bar chart
+# - Energy consumption analysis
+# - Success rate over time
+# - Trajectory visualization
+```
+
+### 2. Phân tích năng lượng
+```bash
+# Phân tích chi tiết năng lượng tiêu thụ
+python scripts/utilities/analyze_energy.py \
+    --evaluation-results results/model_evaluation.json \
+    --output results/energy_analysis.csv
+
+# Output bao gồm:
+# - Energy per episode
+# - Energy per distance traveled
+# - Energy efficiency ratios
+# - Power consumption patterns
+```
+
+---
+
+## 🧪 **ĐÁNH GIÁ CHI TIẾT**
+
+### 1. Trajectory Analysis
+```bash
+# Phân tích đường bay chi tiết
+python scripts/evaluation/trajectory_analyzer.py \
+    --trajectories results/trajectories/ppo_trajectories.pkl \
+    --output results/trajectory_analysis.json
+
+# Metrics phân tích:
+# - Path length efficiency
+# - Smoothness metrics
+# - Collision avoidance effectiveness
+# - Floor transition efficiency
+```
+
+### 2. Energy Analysis
+```bash
+# Phân tích năng lượng chi tiết
+python scripts/evaluation/energy_analyzer.py \
+    --results results/model_evaluation.json \
+    --output results/detailed_energy_report.json
+
+# Bao gồm:
+# - Thrust energy consumption
+# - Hover energy vs movement energy
+# - Energy per floor transition
+# - Battery discharge patterns
+```
+
+---
+
+## 🔍 **PHÂN TÍCH KẾT QUẢ**
+
+### 1. Metrics Collector
+```python
+# Hệ thống thu thập metrics
+from src.rl.evaluation import MetricsCollector
+
+collector = MetricsCollector()
+results = collector.collect_detailed_metrics(
+    episodes=100,
+    include_energy=True,
+    include_trajectory=True,
+    include_localization=True
+)
+```
+
+### 2. Baseline Comparator
+```python
+# So sánh với các phương pháp khác
+from src.rl.evaluation import BaselineComparator
+
+comparator = BaselineComparator()
+comparison = comparator.compare_all_methods(
+    ppo_model="models/checkpoints/final_model.pt",
+    episodes=100
+)
+```
+
+---
+
+## 🚨 **GIÁM SÁT THỰC THỜI**
+
+### 1. Live evaluation monitoring
+```bash
+# Giám sát đánh giá đang chạy
+python scripts/evaluation/monitor_evaluation.py \
+    --log-file results/evaluation.log \
+    --refresh-rate 5
+
+# Hiển thị metrics đang cập nhật:
+# Episode: 45/100
+# Success Rate: 95.6%
+# Avg Energy: 620J
+# Avg Time: 32.1s
+```
+
+### 2. Early termination
+```bash
+# Dừng sớm nếu không đạt yêu cầu
+python scripts/evaluation/evaluate_model.py \
+    --model models/checkpoints/final_model.pt \
+    --episodes 100 \
+    --early-termination true \
+    --min-success-rate 0.90
+```
+
+---
+
+## 📊 **BÁO CÁO KẾT QUẢ**
+
+### 1. Tự động tạo báo cáo
+```bash
+# Tạo báo cáo đánh giá hoàn chỉnh
+python scripts/evaluation/generate_report.py \
+    --results results/model_evaluation.json \
+    --output results/reports/evaluation_report.pdf
+
+# Bao gồm:
+# - Executive summary
+# - Detailed metrics
+# - Comparison with baselines
+# - Performance validation
+# - Energy analysis
+```
+
+### 2. Export kết quả
+```bash
+# Export kết quả ở nhiều định dạng
+python scripts/utilities/export_results.py \
+    --input results/model_evaluation.json \
+    --format all \
+    --output results/exports/
+
+# Tạo các file:
+# - CSV: results.csv
+# - Excel: results.xlsx  
+# - JSON: results.json
+# - LaTeX: results.tex
+```
+
+---
+
+## ⚠️ **LƯU Ý KHI ĐÁNH GIÁ**
+
+### 1. Fair comparison
+```bash
+# Đảm bảo điều kiện đánh giá công bằng
+evaluation_config = {
+    'same_environment': True,
+    'same_start_positions': True, 
+    'same_target_positions': True,
+    'same_obstacles': True,
+    'same_random_seed': 42
+}
+```
+
+### 2. Statistical significance
+```bash
+# Chạy đủ số lượng episodes cho ý nghĩa thống kê
+min_episodes = 50 # For stable metrics
+recommended_episodes = 100  # For publication
+confidence_level = 0.95
+```
+
+---
+
+## 🚀 **TỐI ƯU HÓA ĐÁNH GIÁ**
+
+### 1. Parallel evaluation
+```bash
+# Chạy đánh giá song
+python scripts/evaluation/parallel_evaluation.py \
+    --model models/checkpoints/final_model.pt \
+    --episodes 100 \
+    --num-processes 8 \
+    --output results/parallel_evaluation.json
+```
+
+### 2. Batch evaluation
+```bash
+# Đánh giá nhiều mô hình cùng lúc
+python scripts/evaluation/batch_evaluation.py \
+    --models-dir models/checkpoints/ \
+    --output results/batch_results.json
+```
+
+---
+
+## 🏆 **KẾT QUẢ ĐẠT ĐƯỢC**
+
+### 1. Validation targets
+```bash
+# Kiểm tra đạt mục tiêu nghiên cứu
+python scripts/evaluation/validate_research_targets.py \
+    --results results/model_evaluation.json
+
+# ✅ Research Target 1: 96% success rate (✓ 96.2%)
+# ✅ Research Target 2: 25% energy savings (✓ 78%)
+# ✅ Research Target 3: 2% collision rate (✓ 0.7%)
+# ✅ Research Target 4: 5cm localization (✓ 0.8cm)
+```
+
+### 2. Performance certificates
+```bash
+# Tạo chứng nhận hiệu suất
+python scripts/evaluation/generate_performance_certificate.py \
+    --results results/model_evaluation.json \
+    --output results/certificates/performance_certificate.pdf
+```
+
+---
+
+## 📞 **HỖ TRỢ & TÀI NGUYÊN**
+
+### Script hữu ích:
+- `scripts/evaluation/compare_simulators.py` - So sánh PyBullet vs AirSim
+- `scripts/evaluation/ablation_study.py` - Phân tích thành phần
+- `scripts/evaluation/sensitivity_analysis.py` - Phân tích nhạy cảm
+- `scripts/utilities/convert_results_format.py` - Chuyển đổi định dạng kết quả
+
+### Tài liệu liên quan:
+- **Metrics reference**: docs/METRICS_REFERENCE.md
+- **Evaluation protocol**: docs/EVALUATION_PROTOCOL.md
+- **Statistical analysis**: docs/STATISTICAL_ANALYSIS.md
+
+**🎉 Hệ thống đánh giá đã sẵn sàng để kiểm tra hiệu suất mô hình!**

@@ -139,6 +139,7 @@ DroneDelivery-RL/
 │       ├── data_recorder.py     # Data collection
 │       ├── math_utils.py        # Mathematical utilities
 │       ├── coordinate_utils.py  # Coordinate transformations
+│       ├── imu_preintegration.py  # IMU preintegration utilities
 │       └── file_utils.py        # File I/O operations
 │
 ├── config/                      # Configuration files

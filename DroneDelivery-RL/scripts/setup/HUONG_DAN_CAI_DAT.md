@@ -1,740 +1,366 @@
-# HƯỚNG DẪN CÀI ĐẶT DRONEDELIVERY-RL
-## Indoor Multi-Floor UAV Delivery - Energy-Aware Navigation System
+# HƯỚNG DẪN CÀI ĐẶT HỆ THỐNG
+## DroneDelivery-RL Installation Guide
 
 ---
 
-## 🎯 TỔNG QUAN
+## 🎯 **MỤC TIÊU**
 
-Hướng dẫn này sẽ giúp bạn cài đặt hoàn chỉnh hệ thống DroneDelivery-RL từ đầu. Sau khi hoàn thành, bạn sẽ có một môi trường đầy đủ để:
-- 🚁 **Huấn luyện** PPO agent cho drone navigation  
-- 🏢 **Simulation** 5-floor building environment
-- 📊 **Đánh giá** performance với Table 3 results
-- ⚡ **Optimization** energy-aware navigation
-
----
-
-## 📋 YÊU CẦU HỆ THỐNG
-
-### Yêu cầu tối thiểu:
-- **Python**: 3.8 hoặc mới hơn
-- **RAM**: 8GB (khuyến nghị 16GB cho training)  
-- **Disk**: 10GB trống (cho data, models, results)
-- **OS**: Ubuntu 18.04+, macOS 10.14+, Windows 10+
-- **Internet**: Để download packages và dependencies
-
-### Yêu cầu khuyến nghị:
-- **CPU**: Multi-core processor (8+ cores tối ưu)
-- **GPU**: NVIDIA GPU với CUDA support (không bắt buộc)
-- **RAM**: 16GB+ cho training lớn
-- **SSD**: Để tăng tốc I/O operations
+Hướng dẫn cài đặt hoàn chỉnh hệ thống DroneDelivery-RL với tất cả các thành phần cần thiết:
+- Môi trường Python và các thư viện phụ trợ
+- Mô phỏng AirSim (tùy chọn)
+- ROS integration (tùy chọn)
+- Docker containerization (tùy chọn)
 
 ---
 
-## 🚀 PHƯƠNG PHÁP CÀI ĐẶT
+## 📋 **YÊU CẦU HỆ THỐNG**
 
-### Phương pháp 1: Cài đặt tự động (KHUYẾN NGHỊ) ⭐
+### Phần cứng tối thiểu:
+- **CPU**: 4 cores, 2.5GHz
+- **RAM**: 8GB
+- **Storage**: 20GB free
+- **OS**: Ubuntu 20.04 LTS hoặc Windows 10/11
 
-**Bước duy nhất - Chạy script tự động:**
-Clone project (nếu chưa có)
+### Phần mềm cần thiết:
+- **Python**: 3.8+
+- **Git**: 2.0+
+- **CMake**: 3.10+
+- **CUDA** (nếu dùng GPU): 11.7+
+
+---
+
+## 🚀 **CÀI ĐẶT TỰ ĐỘNG (Khuyến nghị)**
+
+### 1. Clone repository
 ```bash
+# Clone dự án
 git clone <repository-url> DroneDelivery-RL
 cd DroneDelivery-RL
 ```
 
-Chạy script cài đặt tự động
+### 2. Cài đặt tự động (Linux/Ubuntu)
 ```bash
+# Cài đặt môi trường và dependencies
+python scripts/setup/build_environment.py
+
+# Hoặc chạy script trực tiếp
+chmod +x scripts/setup/install_dependencies.sh
+./scripts/setup/install_dependencies.sh
+```
+
+### 3. Cài đặt tự động (Windows)
+```powershell
+# Sử dụng PowerShell
 python scripts/setup/build_environment.py
 ```
 
-Windows: Download và chạy installer từ conda.io
-
-**Thời gian**: ~15-20 phút  
-**Ưu điểm**: Hoàn toàn tự động, detect hệ thống, xử lý lỗi  
-**Nhược điểm**: Ít control, cần internet tốt
-
 ---
 
-### Phương pháp 2: Cài đặt từng bước
+## 🔧 **CÀI ĐẶT THỦ CÔNG**
 
-#### Bước 1: Cài đặt Conda/Mamba
-Ubuntu/Debian
+### 1. Tạo môi trường ảo
 ```bash
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-bash Miniconda3-latest-Linux-x86_64.sh
+# Tạo môi trường conda
+conda create -n drone-delivery-rl python=3.9
+conda activate drone-delivery-rl
+
+# Hoặc tạo môi trường ảo Python
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# hoặc
+venv\Scripts\activate     # Windows
 ```
 
-macOS
+### 2. Cài đặt dependencies
 ```bash
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
-bash Miniconda3-latest-MacOSX-x86_64.sh
+# Cài đặt từ requirements.txt
+pip install -r requirements.txt
+
+# Hoặc cài đặt từ environment.yml (nếu dùng conda)
+conda env update -f environment.yml
 ```
 
-Windows: Download và chạy installer từ conda.io
-
-#### Bước 2: Cài đặt system packages
-Ubuntu/Debian
+### 3. Cài đặt package
 ```bash
-sudo apt update && sudo apt install -y \
-build-essential cmake git wget curl unzip \
-libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 \
-libxrender-dev libgomp1 python3-dev
-```
-
-macOS (with Homebrew)
-```bash
-brew install cmake git wget curl
-```
-
-Windows: Không cần (Python packages sẽ handle)
-
-#### Bước 3: Setup Conda environment
-Chạy script setup conda
-```bash
-bash scripts/setup/setup_conda_env.sh
-```
-
-Hoặc manual:
-```bash
-conda create -n drone_delivery_rl python=3.9 -y
-conda activate drone_delivery_rl
-```
-
-Windows: Không cần (Python packages sẽ handle)
-
-#### Bước 4: Cài đặt dependencies
-Chạy script install dependencies
-```bash
-bash scripts/setup/install_dependencies.sh
-```
-
-Hoặc manual install packages (xem requirements trong script)
-
-#### Bước 5: Verify installation
-Kiểm tra cài đặt
-```bash
-python scripts/setup/verify_installation.py
-```
-
-Windows: Không cần (Python packages sẽ handle)
-
-**Thời gian**: ~20-30 phút  
-**Ưu điểm**: Control từng bước, debug dễ dàng  
-**Nhược điểm**: Phức tạp hơn, dễ miss steps
-
----
-
-## 📁 CẤU TRÚC SAU KHI CÀI ĐẶT
-
-DroneDelivery-RL/
-├── 📁 src/ # Source code chính
-│ ├── bridges/ # Hardware interfaces
-│ ├── environment/ # Drone simulation
-│ ├── localization/ # VI-SLAM system
-│ ├── planning/ # A* và S-RRT planners
-│ ├── rl/ # PPO reinforcement learning
-│ └── utils/ # Utilities và tools
-├── 📁 scripts/ # Execution scripts
-│ ├── evaluation/ # Đánh giá performance
-│ ├── setup/ # Cài đặt và setup
-│ ├── training/ # Huấn luyện models
-│ └── utilities/ # Helper scripts
-├── 📁 config/ # Configuration files
-│ ├── main_config.yaml # Cấu hình chính
-│ └── evaluation_config.yaml # Cấu hình đánh giá
-├── 📁 data/ # Data storage
-│ ├── trajectories/ # Flight paths
-│ └── maps/ # Building maps
-├── 📁 models/ # Trained models
-│ └── checkpoints/ # Model checkpoints
-├── 📁 results/ # Kết quả và reports
-│ ├── evaluations/ # Evaluation results
-│ └── visualizations/ # Plots và charts
-└── 📁 logs/ # System logs
-
-Windows: Không cần (Python packages sẽ handle)
-
----
-
-## 🔧 TÙY CHỌN CÀI ĐẶT
-
-### Cài đặt với tên environment khác:
-```bash
-python scripts/setup/build_environment.py --env-name my_custom_env
-```
-Windows: Không cần (Python packages sẽ handle)
-
-
-### Cài đặt với GPU support:
-Sau khi setup xong, install CUDA PyTorch
-```bash
-conda activate drone_delivery_rl
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-```
-Windows: Không cần (Python packages sẽ handle)
-
-
-### Cài đặt development tools:
-```bash
-conda activate drone_delivery_rl
-pip install jupyter notebook ipython black flake8 pytest
-```
-Windows: Không cần (Python packages will handle)
-
-
-### Cài đặt optional packages:
-Cho advanced visualization
-```bash
-pip install plotly dash streamlit
-```
-
-Cho distributed training
-```bash
-pip install ray[rllib]
-```
-
-Cho experiment tracking
-```bash
-pip install mlflow neptune-client
-```
-Windows: Không cần (Python packages will handle)
-
-
----
-
-## ✅ KIỂM TRA CÀI ĐẶT
-
-### Test cơ bản:
-Activate environment
-```bash
-conda activate drone_delivery_rl
-```
-
-Chạy verification script
-```bash
-python scripts/setup/verify_installation.py
-```
-
-Windows: Không cần (Python packages will handle)
-
-### Test advanced:
-Test environment creation
-python -c "
-from src.environment import DroneEnvironment
-config = {'building': {'floors': 5}}
-env = DroneEnvironment(config)
-print('✅ Environment creation successful')
-"
-
-Test RL agent
-python -c "
-from src.rl.agents import PPOAgent
-config = {'observation_dim': 35, 'action_dim': 4}
-agent = PPOAgent(config)
-print('✅ RL agent creation successful')
-"
-
-Test complete system
-python -c "
-from src import DroneDeliverySystem
-system = DroneDeliverySystem()
-print('✅ Complete system integration successful')
-print(f'System status: {system.get_system_status()}')
-"
-
-Windows: Không cần (Python packages will handle)
-
-### Kết quả mong đợi:
-🔍 VERIFYING DRONEDELIVERY-RL INSTALLATION
-🧪 Testing Python Environment...
-✅ Python 3.9.18
-✅ Virtual environment active: drone_delivery_rl
-
-🧪 Testing Core Dependencies...
-✅ numpy: 1.24.3
-✅ scipy: 1.11.4
-✅ matplotlib: 3.7.2
-✅ pyyaml: 6.0.1
-✅ tqdm: 4.66.1
-✅ psutil: 5.9.6
-
-🧪 Testing ML/RL Packages...
-✅ torch: 2.1.0+cpu
-CUDA available: False
-✅ gymnasium: 0.29.1
-✅ Environment creation test passed
-✅ pybullet: 3.2.5
-✅ tensorboard: 2.14.1
-✅ wandb: 0.16.0
-
-🧪 Testing Computer Vision...
-✅ opencv-python: 4.8.1.78
-✅ pillow: 10.0.1
-
-🧪 Testing Project Structure...
-✅ src/
-✅ src/rl/
-✅ src/environment/
-✅ scripts/
-✅ config/
-✅ data/
-✅ models/
-✅ results/
-
-🧪 Testing Project Imports...
-✅ src.utils
-✅ src.environment
-✅ src.rl.agents
-✅ src.planning
-✅ src.localization
-
-==================================================
-🎉 INSTALLATION VERIFICATION: ALL TESTS PASSED
-
-Your DroneDelivery-RL installation is ready!
-
-Windows: Không cần (Python packages sẽ handle)
-
----
-
-## 🐛 XỬ LÝ LỖI THƯỜNG GẶP
-
-### Lỗi 1: "conda command not found"
-Cài đặt Miniconda
-```bash
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-bash Miniconda3-latest-Linux-x86_64.sh
-```
-
-Reload shell
-```bash
-source ~/.bashrc
-```
-
-Hoặc
-exec bash
-
-Windows: Không cần (Python packages will handle)
-
-### Lỗi 2: "Permission denied" khi install system packages
-Ubuntu: Cần sudo
-```bash
-sudo apt update && sudo apt install -y build-essential
-```
-
-macOS: Install Homebrew trước
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Windows: Không cần (Python packages sẽ handle)
-
-### Lỗi 3: "PyTorch installation failed"
-Cài riêng PyTorch
-```bash
-conda activate drone_delivery_rl
-conda install pytorch torchvision torchaudio cpuonly -c pytorch
-```
-
-Hoặc với GPU
-```bash
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-```
-
-Windows: Không cần (Python packages will handle)
-
-### Lỗi 4: "Package conflicts" 
-Clean install environment
-```bash
-conda env remove -n drone_delivery_rl -y
-conda clean --all
-```
-
-Chạy lại setup
-```bash
-python scripts/setup/build_environment.py
-```
-
-Windows: Không cần (Python packages will handle)
-
-### Lỗi 5: "Import errors" cho project modules
-Kiểm tra PYTHONPATH
-```bash
-export PYTHONPATH="${PWD}/src}:${PYTHONPATH}"
-```
-
-Hoặc install project
-```bash
+# Cài đặt package trong chế độ phát triển
 pip install -e .
 ```
 
-Hoặc thêm vào .bashrc
-echo 'export PYTHONPATH="/path/to/DroneDelivery-RL/src:${PYTHONPATH}"' >> ~/.bashrc
-
-Windows: Không cần (Python packages will handle)
-
-### Lỗi 6: "Insufficient memory" khi training
-Giảm batch size trong config
-config/main_config.yaml:
-rl:
-ppo:
-batch_size: 128 # Từ 256 xuống 128
-rollout_length: 1024 # Từ 2048 xuống 1024
-
-Windows: Không cần (Python packages will handle)
-
-### Lỗi 7: "Display/GUI errors" cho visualization
-Ubuntu: Cài thêm GUI packages
-```bash
-sudo apt install -y python3-tk
-```
-
-SSH remote: Setup X11 forwarding
-```bash
-ssh -X username@hostname
-```
-
-Hoặc dùng headless mode
-export MPLBACKEND=Agg # Matplotlib không cần display
-
-Windows: Không cần (Python packages will handle)
-
 ---
 
-## 🖥️ HỖ TRỢ THEO HỆ ĐIỀU HÀNH
+## 📦 **CẤU HÌNH MÔI TRƯỜNG**
 
-### 🐧 Ubuntu/Debian Linux
-Full setup command
+### 1. Cấu hình hệ thống
 ```bash
-sudo apt update && \
-python scripts/setup/build_environment.py && \
-conda activate drone_delivery_rl && \
+# Kiểm tra cài đặt
 python scripts/setup/verify_installation.py
+
+# Output mong đợi:
+# ✅ Python version: 3.9.x
+# ✅ PyTorch: 2.0+ available
+# ✅ CUDA: Available (nếu có GPU)
+# ✅ Dependencies: All installed
 ```
 
-Windows: Không cần (Python packages will handle)
-
-**Đặc biệt lưu ý**: Cần `sudo` cho system packages
-
-### 🍎 macOS
-Cài Homebrew trước (nếu chưa có)
+### 2. Thiết lập cấu hình mặc định
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Copy cấu hình mặc định
+cp config/training/ppo_hyperparameters.yaml config/training/default_config.yaml
+cp config/evaluation/baseline_config.yaml config/evaluation/default_config.yaml
 ```
-
-Setup project
-```bash
-python scripts/setup/build_environment.py
-conda activate drone_delivery_rl
-python scripts/setup/verify_installation.py
-```
-
-Windows: Không cần (Python packages will handle)
-
-**Đặc biệt lưu ý**: Có thể cần install Xcode Command Line Tools
-
-### 🪟 Windows
-```batch
-:: Mở Anaconda Prompt hoặc PowerShell
-:: Navigate to project directory
-cd DroneDelivery-RL
-```
-
-```batch
-:: Chạy setup
-python scripts\setup\build_environment.py
-```
-
-```batch
-:: Activate environment
-conda activate drone_delivery_rl
-```
-
-```batch
-:: Verify
-python scripts\setup\verify_installation.py
-```
-
-Windows: Không cần (Python packages will handle)
-
-**Đặc biệt lưu ý**: Sử dụng `\` thay vì `/` trong paths
 
 ---
 
-## ⏱️ TIMELINE CÀI ĐẶT
+## 🎮 **TÍCH HỢP AIRSIM (Tùy chọn)**
 
-### Automatic Setup (build_environment.py):
-| Bước | Mô tả | Thời gian | 
-|------|-------|-----------|
-| 1 | System prerequisites check | 1 phút |
-| 2 | System packages install | 3-5 phút |
-| 3 | Conda environment setup | 2-3 phút |
-| 4 | Python packages install | 8-12 phút |
-| 5 | Project structure creation | 1 phút |
-| 6 | Data download | 2-3 phút |
-| 7 | Installation verification | 1-2 phút |
-| **TOTAL** | **Complete setup** | **~20 phút** |
-
-### Manual Setup (step-by-step):
-| Bước | Script | Thời gian |
-|------|--------|-----------|
-| 1 | `setup_conda_env.sh` | 5-8 phút |
-| 2 | `install_dependencies.sh` | 10-15 phút |
-| 3 | `verify_installation.py` | 2-3 phút |
-| **TOTAL** | **Manual setup** | **~25 phút** |
-
----
-
-## 📋 CHECKLIST HOÀN THÀNH
-
-### Trước khi bắt đầu:
-- [ ] **Python 3.8+** đã cài đặt
-- [ ] **Conda/Mamba** đã cài đặt  
-- [ ] **Git** đã cài đặt (khuyến nghị)
-- [ ] **10GB+ disk space** trống
-- [ ] **Internet connection** ổn định
-
-### Sau khi setup:
-- [ ] **Conda environment** `drone_delivery_rl` active
-- [ ] **All packages** import thành công  
-- [ ] **Project structure** complete với tất cả folders
-- [ ] **Configuration files** tạo thành công
-- [ ] **Verification script** pass tất cả tests
-- [ ] **Example imports** work correctly
-
-### Bước tiếp theo:
-- [ ] **Training**: `python scripts/training/train_ppo.py`
-- [ ] **Evaluation**: `python scripts/evaluation/evaluate_model.py`
-- [ ] **Visualization**: Check `results/visualizations/`
-
----
-
-## 🔧 CẤU HÌNH TỪY CHỈNH
-
-### Thay đổi Python version:
-Tạo với Python 3.10
+### 1. Cài đặt AirSim
 ```bash
-conda create -n drone_delivery_rl python=3.10 -y
+# Cài đặt AirSim Python API
+pip install airsim
+
+# Download AirSim Unreal Environment từ GitHub
+# https://github.com/microsoft/AirSim
 ```
 
-Hoặc modify trong build_environment.py:
-PYTHON_VERSION = "3.10"
-Windows: Không cần (Python packages will handle)
-
-### Cài đặt GPU support:
-Sau khi setup xong, thay thế PyTorch
+### 2. Cấu hình AirSim
 ```bash
-conda activate drone_delivery_rl
-conda uninstall pytorch torchvision torchaudio -y
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+# Tạo file cấu hình AirSim
+mkdir -p ~/Documents/AirSim
+cp config/airsim/settings.json ~/Documents/AirSim/
 ```
 
-Verify GPU
+### 3. Kiểm tra kết nối AirSim
 ```bash
-python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
-```
-
-Windows: Không cần (Python packages will handle)
-
-### Development mode setup:
-Thêm development tools
-```bash
-conda activate drone_delivery_rl
-pip install \
-jupyter \
-notebook \
-ipython \
-black \
-flake8 \
-pytest \
-pytest-cov
-```
-
-Windows: Không cần (Python packages will handle)
-
-### Minimal installation (chỉ evaluation):
-Tạo environment minimal cho chỉ evaluation
-```bash
-conda create -n drone_eval python=3.9 -y
-conda activate drone_eval
-pip install torch numpy matplotlib pyyaml tqdm
-```
-
-Windows: Không cần (Python packages will handle)
-
----
-
-## 📊 KIỂM TRA HIỆU SUẤT
-
-### Test system performance:
-CPU benchmark
-```bash
-conda activate drone_delivery_rl
+# Chạy AirSim environment trước
+# Sau đó kiểm tra kết nối:
 python -c "
-import time
-import numpy as np
-start = time.time()
-np.random.rand(1000, 1000) @ np.random.rand(1000, 1000)
-print(f'Matrix multiplication time: {time.time()-start:.3f}s')
+import airsim
+client = airsim.MultirotorClient()
+client.confirmConnection()
+print('✅ AirSim connection successful!')
 "
 ```
 
-Memory usage test
+---
+
+## 🤖 **TÍCH HỢP ROS (Tùy chọn)**
+
+### 1. Cài đặt ROS
 ```bash
-python -c "
-import psutil
-print(f'Available RAM: {psutil.virtual_memory().available / 1024**3:.1f}GB')
-print(f'CPU cores: {psutil.cpu_count()}')
-"
+# Ubuntu 20.04 - ROS Noetic
+sudo apt update
+sudo apt install ros-noetic-desktop-full
+source /opt/ros/noetic/setup.bash
+
+# Cài đặt ROS dependencies
+pip install roslibpy
+pip install rospy
 ```
 
-PyTorch performance test
+### 2. Cấu hình ROS workspace
 ```bash
+# ROS workspace đã được tạo trong dự án
+cd ros_ws
+catkin_make
+source devel/setup.bash
+```
+
+---
+
+## 🐳 **DOCKER DEPLOYMENT (Tùy chọn)**
+
+### 1. Cài đặt Docker
+```bash
+# Ubuntu
+sudo apt install docker.io docker-compose
+sudo usermod -aG docker $USER
+
+# Restart để áp dụng thay đổi
+sudo systemctl restart docker
+```
+
+### 2. Build Docker image
+```bash
+# Build image chính
+cd docker
+docker build -f Dockerfile.base -t drone-delivery-rl:base .
+
+# Build image training
+docker build -f Dockerfile.training -t drone-delivery-rl:training .
+```
+
+### 3. Chạy container
+```bash
+# Chạy container với GPU (nếu có)
+docker run --gpus all -it --name drone-training drone-delivery-rl:training
+
+# Hoặc chạy container CPU
+docker run -it --name drone-training drone-delivery-rl:training
+```
+
+---
+
+## 🧪 **KIỂM TRA CÀI ĐẶT**
+
+### 1. Kiểm tra cơ bản
+```bash
+# Chạy script kiểm tra cài đặt
+python scripts/setup/verify_installation.py
+
+# Kiểm tra version tất cả packages
 python -c "
 import torch
-x = torch.randn(1000, 1000)
-start = torch.cuda.Event(enable_timing=True)
-end = torch.cuda.Event(enable_timing=True)
-if torch.cuda.is_available():
-x = x.cuda()
-start.record()
-torch.mm(x, x)
-end.record()
-torch.cuda.synchronize()
-print(f'GPU matrix mult: {start.elapsed_time(end):.2f}ms')
-else:
-import time
-t = time.time()
-torch.mm(x, x)
-print(f'CPU matrix mult: {(time.time()-t)*1000:.2f}ms')
+import numpy as np
+import gymnasium
+import cv2
+import airsim
+
+print(f'PyTorch version: {torch.__version__}')
+print(f'CUDA available: {torch.cuda.is_available()}')
+print(f'NumPy version: {np.__version__}')
+print(f'Gymnasium version: {gymnasium.__version__}')
+print(f'OpenCV version: {cv2.__version__}')
+print(f'AirSim available: {\'airsim\' in globals()}')
 "
 ```
 
-Windows: Không cần (Python packages will handle)
+### 2. Kiểm tra môi trường
+```bash
+# Chạy thử môi trường đơn giản
+python -c "
+from src.environment import DroneEnvironment
+import yaml
+
+# Load config mặc định
+with open('config/training/environment_config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+
+# Tạo môi trường
+env = DroneEnvironment(config['environment'])
+obs = env.reset()
+print(f'✅ Environment created successfully')
+print(f'Observation shape: {obs.shape}')
+"
+```
 
 ---
 
-## 🆘 HỖ TRỢ VÀ TROUBLESHOOTING
+## 🚨 **GẶP SỰ CỐ & GIẢI PHÁP**
 
-### Khi setup không thành công:
-
-1. **Xem logs chi tiết**:
+### 1. CUDA không hoạt động
 ```bash
-cat setup.log
+# Kiểm tra CUDA
+nvidia-smi
+python -c "import torch; print(torch.cuda.is_available())"
+
+# Nếu CUDA không hoạt động, dùng CPU
+export CUDA_VISIBLE_DEVICES=""
 ```
 
-Hoặc
+### 2. Memory không đủ
 ```bash
-tail -f setup.log # Real-time log
+# Giảm batch size trong config
+# config/training/ppo_hyperparameters.yaml:
+ppo:
+  batch_size: 64  # Giảm từ 128 xuống
+  rollout_length: 1024  # Giảm từ 2048 xuống
 ```
 
-Windows: Không cần (Python packages will handle)
-
-2. **Force clean reinstall**:
-Xóa environment cũ
+### 3. Dependencies conflict
 ```bash
-conda env remove -n drone_delivery_rl -y
-conda clean --all
+# Tạo môi trường mới sạch
+conda create -n drone-delivery-rl-clean python=3.9
+conda activate drone-delivery-rl-clean
+pip install -r requirements.txt
 ```
 
-Setup lại
+### 4. Permission errors
 ```bash
-python scripts/setup/build_environment.py --force
+# Fix permission cho scripts
+chmod +x scripts/**/*.sh
+chmod +x docker/*.sh
 ```
-
-Windows: Không cần (Python packages will handle)
-
-3. **Manual dependency install**:
-Activate environment
-```bash
-conda activate drone_delivery_rl
-```
-Install từng package
-```bash
-pip install torch
-pip install gymnasium
-pip install pybullet
-... # continue với other packages
-```
-
-pip install gymnasium
-pip install pybullet
-
-... # continue với other packages
-
-4. **Check disk space**:
-df -h # Linux/Mac
-
-Đảm bảo có ít nhất 10GB trống
-Windows: Không cần (Python packages will handle)
-
-5. **Check internet connection**:
-```bash
-ping google.com
-```
-
-Hoặc test package download
-```bash
-pip install --dry-run torch
-```
-
-Windows: Không cần (Python packages will handle)
-
-### Contact và Support:
-
-- **Project Issues**: Check GitHub issues
-- **Setup Problems**: Review `setup.log` và `verification_results.json`
-- **Package Conflicts**: Try clean install với fresh conda environment
-- **System Specific**: Check OS-specific requirements
 
 ---
 
-## 🏁 HOÀN THÀNH CÀI ĐẶT
+## 📊 **HIỆU SUẤT CÀI ĐẶT**
 
-Khi verification script hiển thị:
-🎉 INSTALLATION VERIFICATION: ALL TESTS PASSED
+### Thời gian cài đặt ước lượng:
+| Thành phần | Thời gian | Mô tả |
+|------------|-----------|-------|
+| **Python packages** | 5-10 phút | pip install requirements |
+| **PyTorch** | 5-15 phút | Tùy cấu hình mạng |
+| **AirSim** | 10-30 phút | Download và setup |
+| **ROS** | 15-45 phút | Full desktop install |
+| **Docker** | 10-20 phút | Build base images |
 
-Your DroneDelivery-RL installation is ready!
-
-Windows: Không cần (Python packages will handle)
-
-Bạn đã sẵn sàng để:
-
-1. **🚀 Bắt đầu training**:
-```bash
-conda activate drone_delivery_rl
-python scripts/training/train_ppo.py --config config/main_config.yaml
-```
-
-Windows: Không cần (Python packages will handle)
-
-2. **📊 Chạy evaluation** (nếu đã có model):
-```bash
-python scripts/evaluation/evaluate_model.py \
---model models/checkpoints/ppo_final.pt \
---episodes 100
-```
-
-Windows: Không cần (Python packages will handle)
-
-3. **📈 Generate Table 3**:
-Chạy complete evaluation pipeline
-```bash
-bash scripts/evaluation/run_full_evaluation.sh
-```
-
-Windows: Không cần (Python packages will handle)
+### Dung lượng ổ đĩa:
+- **Minimal install**: 5GB
+- **Full install**: 15GB
+- **With AirSim**: 25GB
+- **With Docker**: 30GB
 
 ---
 
-## 🎯 SUCCESS CRITERIA
+## 🔄 **CẬP NHẬT HỆ THỐNG**
 
-✅ **Installation hoàn thành khi**:
-- Tất cả verification tests PASS
-- Project imports work correctly  
-- Environment creation successful
-- Example config files generated
-- Ready để start training/evaluation
+### 1. Cập nhật từ repository
+```bash
+# Pull code mới nhất
+git pull origin main
 
-**Estimated setup time**: 15-30 phút depending on internet speed
+# Cập nhật dependencies
+pip install -r requirements.txt --upgrade
 
-**🎉 Chúc mừng! Bạn đã sẵn sàng để develop energy-aware indoor drone delivery system! 🚁✨**
+# Cập nhật package
+pip install -e . --upgrade
+```
+
+### 2. Cập nhật môi trường
+```bash
+# Nếu dùng conda
+conda env update -f environment.yml
+
+# Nếu dùng venv, tạo lại môi trường
+deactivate
+rm -rf venv
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+```
+
+---
+
+## 📞 **HỖ TRỢ & LIÊN HỆ**
+
+### Các kênh hỗ trợ:
+- **GitHub Issues**: https://github.com/[repo]/issues
+- **Documentation**: docs/ folder
+- **Email**: [contact@university.edu]
+
+### Troubleshooting:
+- **Common issues**: docs/TROUBLESHOOTING.md
+- **FAQ**: docs/FAQ.md
+- **Community**: [link to community]
+
+---
+
+## ✅ **HOÀN TẤT CÀI ĐẶT**
+
+Sau khi hoàn tất cài đặt, bạn có thể kiểm tra bằng lệnh:
+
+```bash
+# Kiểm tra toàn bộ hệ thống
+python scripts/setup/verify_installation.py --full
+
+# Output mong đợi:
+# ✅ Python environment: OK
+# ✅ Dependencies: All satisfied
+# ✅ GPU support: Available (nếu có)
+# ✅ AirSim integration: Configured (nếu có)
+# ✅ ROS integration: Available (nếu có)
+# ✅ Ready for training: YES
+```
+
+**🎉 Hệ thống DroneDelivery-RL đã sẵn sàng cho quá trình huấn luyện và đánh giá!**
