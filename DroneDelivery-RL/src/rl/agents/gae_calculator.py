@@ -5,7 +5,7 @@ Generalized Advantage Estimation with λ = 0.95 (Table 2).
 
 import numpy as np
 import logging
-from typing import Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 
 class GAECalculator:
     """
@@ -24,6 +24,10 @@ class GAECalculator:
                    dones: np.ndarray, next_value: float, 
                    next_done: bool) -> Tuple[np.ndarray, np.ndarray]:
         """
+        # Support both 'lam' and 'lambda_' parameter names
+        if lam is not None:
+            lambda_ = lam
+        
         # Support both 'lam' and 'lambda_' parameter names
         if 'lam' in locals() and lam is not None:
             lambda_ = lam

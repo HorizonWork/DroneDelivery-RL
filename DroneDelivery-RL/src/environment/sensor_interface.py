@@ -417,4 +417,8 @@ class SensorInterface:
     
     def __del__(self):
         """Cleanup on destruction."""
-        self.stop()
+        try:
+            if hasattr(self, 'is_running'):
+                self.stop()
+        except:
+            pass
