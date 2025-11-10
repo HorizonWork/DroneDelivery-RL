@@ -45,7 +45,23 @@ class SensorBridge:
     Processes raw sensor data into features for 35D observation space.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        # Use default config if none provided
+        if config is None:
+            config = {
+                'occupancy_sectors': 24,
+                'depth_range_max': 100.0,
+                'occupancy_range': 5.0,
+                'camera_frequency': 30.0,
+                'camera_resolution': (640, 480),
+                'imu_frequency': 200.0,
+                'grid_resolution': 0.5,
+                'building_dims': {
+                    'length': 20.0,
+                    'width': 40.0,
+                    'height': 15.0
+                }
+            }
         self.config = config
         self.logger = logging.getLogger(__name__)
         

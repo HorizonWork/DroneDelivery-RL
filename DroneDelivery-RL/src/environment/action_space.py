@@ -32,7 +32,20 @@ class ActionSpace:
     Actions: [vx, vy, vz, ω] - body-frame velocity commands + yaw rate.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        # Use default config if none provided
+        if config is None:
+            config = {
+                'action': {
+                    'action_dim': 4,
+                    'max_translational_velocity': 5.0,
+                    'max_yaw_rate': 1.0,
+                    'action_low': (-5.0, -5.0, -5.0, -1.0),
+                    'action_high': (5.0, 5.0, 5.0, 1.0),
+                    'enable_safety_limits': True,
+                    'emergency_stop_threshold': 10.0
+                }
+            }
         self.config = ActionConfig(**config.get('action', {}))
         self.logger = logging.getLogger(__name__)
         

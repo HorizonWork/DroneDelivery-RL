@@ -37,7 +37,22 @@ class AirSimBridge:
     Handles drone control, sensor data collection, and world state queries.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        # Use default config if none provided
+        if config is None:
+            config = {
+                'drone_name': 'Drone0',
+                'spawn_location': (6000.0, -3000.0, 300.0),
+                'spawn_orientation': (0.0, 0.0, 0.0),
+                'max_velocity': 5.0,
+                'max_yaw_rate': 1.0,
+                'control_frequency': 20.0,
+                'camera_frequency': 30.0,
+                'camera_resolution': (640, 480),
+                'imu_frequency': 200.0,
+                'collision_threshold': 0.1,
+                'ground_clearance': 0.5
+            }
         self.config = config
         self.logger = logging.getLogger(__name__)
         

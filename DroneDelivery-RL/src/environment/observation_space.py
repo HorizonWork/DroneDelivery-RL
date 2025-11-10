@@ -14,8 +14,8 @@ from scipy.spatial.transform import Rotation as R
 class ObservationConfig:
     """Configuration for observation space."""
     # Dimensions (Table 1 exact match)
-    pose_dim: int = 7          # 3D position + quaternion orientation
-    velocity_dim: int = 4      # Body-frame velocities [vx,vy,vz] + yaw rate
+    pose_dim: int = 3          # 3D position (x, y, z)
+    velocity_dim: int = 3      # Body-frame velocities [vx,vy,vz] + yaw rate
     goal_vector_dim: int = 3   # 3D vector to goal
     battery_dim: int = 1       # Battery fraction [0,1]
     occupancy_dim: int = 24    # 24-sector histogram 
@@ -39,7 +39,27 @@ class ObservationSpace:
     Exactly matches Table 1 from report.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        # Use default config if none provided
+        if config is None:
+            config = {
+                'observation': {
+                    'pose_dim': 3,
+                    'velocity_dim': 3,
+                    'goal_vector_dim': 3,
+                    'battery_dim': 1,
+                    'occupancy_dim': 24,
+                    'localization_error_dim': 1,
+                    'position_bounds': (-50.0, 50.0),
+                    'velocity_bounds': (-10.0, 10.0),
+                    'goal_distance_bounds': (0.0, 100.0),
+                    'occupancy_range': 5.0,
+                    'max_localization_error': 1.0,
+                    'pose_update_hz': 200.0,
+                    'velocity_update_hz': 200.0,
+                    'occupancy_update_hz': 20.0
+                }
+            }
         self.config = ObservationConfig(**config.get('observation', {}))
         self.logger = logging.getLogger(__name__)
         
@@ -80,7 +100,7 @@ class ObservationSpace:
         indices = {}
         start = 0
         
-        # Pose (7D): 3D position + quaternion orientation 
+        # Pose (7D): 3D position (x, y, z) 
         indices['pose'] = (start, start + self.config.pose_dim)
         start += self.config.pose_dim
         
@@ -162,7 +182,7 @@ class ObservationSpace:
     def _extract_pose_observation(self, drone_state: Dict[str, Any], 
                                  slam_data: Dict[str, Any]) -> np.ndarray:
         """
-        Extract 7D pose observation: 3D position + quaternion orientation.
+        Extract 7D pose observation: 3D position (x, y, z).
         Uses VI-SLAM pose estimate when available, fallback to drone state.
         """
         pose_obs = np.zeros(7, dtype=np.float32)
@@ -368,7 +388,7 @@ class ObservationSpace:
                 'pose': {
                     'indices': self.indices['pose'],
                     'dimension': self.config.pose_dim,
-                    'description': '3D position + quaternion orientation from VI-SLAM'
+                    'description': '3D position (x, y, z) from VI-SLAM'
                 },
                 'velocity': {
                     'indices': self.indices['velocity'],

@@ -341,7 +341,9 @@ class AirSimEnvironment(gym.Env):
         return state
     
     def _get_observation(self) -> np.ndarray:
-        """Get 35-dimensional observation vector."""
+        """
+        # Note: Using only position (3D), not full pose (7D) to match report's 35D spec
+Get 35-dimensional observation vector."""
         # Get SLAM data
         slam_pose = self.slam_bridge.get_current_pose()
         slam_data = {
