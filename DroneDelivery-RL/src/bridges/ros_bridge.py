@@ -72,14 +72,37 @@ class ROSBridge:
     """
     ROS2 bridge for SLAM and sensor data integration.
     Connects AirSim data with ORB-SLAM3 ROS2 nodes.
+    Falls back to dummy implementation when ROS2 is not available.
     """
     
     def __init__(self, config: Dict[str, Any]):
         if not ROS_AVAILABLE:
-            raise ImportError("ROS2 is not available. Please install ROS2 to use ROSBridge.")
+            # Set up a dummy implementation when ROS is not available
+            self.config = config
+            self.logger = None
+            self.topics = ROSTopics()
+            if 'topics' in config:
+                for key, value in config['topics'].items():
+                    setattr(self.topics, key, value)
+            
+            # Initialize with None values for all ROS-related attributes
+            self.cv_bridge = None
+            self.latest_slam_pose = None
+            self.latest_map_points = None
+            self.slam_trajectory = []
+            self.latest_ate = 0.0
+            self.pose_callbacks = []
+            self.map_callbacks = []
+            self.ros_thread = None
+            self.is_running = False
+            
+            logging.warning("ROS2 Bridge initialized in dummy mode (ROS2 not available)")
+            return
         
         rclpy.init()
-        super().__init__('drone_delivery_bridge')
+        # Only import Node when ROS is available
+        from rclpy.node import Node
+        Node.__init__(self, 'drone_delivery_bridge')
         
         self.config = config
         self.logger = self.get_logger()
@@ -197,6 +220,9 @@ class ROSBridge:
     
     def _slam_pose_callback(self, msg: PoseStamped):
         """Handle SLAM pose updates."""
+        if not ROS_AVAILABLE:
+            return  # Skip callback if ROS is not available
+            
         pose = SLAMPose(
             position=(
                 msg.pose.position.x,
@@ -219,10 +245,14 @@ class ROSBridge:
             try:
                 callback(pose)
             except Exception as e:
-                self.logger.error(f"Pose callback error: {e}")
+                if self.logger:
+                    self.logger.error(f"Pose callback error: {e}")
     
     def _map_points_callback(self, msg: PointCloud2):
         """Handle SLAM map points updates."""
+        if not ROS_AVAILABLE:
+            return  # Skip callback if ROS is not available
+            
         try:
             # Convert PointCloud2 to numpy array
             # This is a simplified conversion - full implementation would use sensor_msgs_py
@@ -234,13 +264,18 @@ class ROSBridge:
                 try:
                     callback(points)
                 except Exception as e:
-                    self.logger.error(f"Map callback error: {e}")
+                    if self.logger:
+                        self.logger.error(f"Map callback error: {e}")
                     
         except Exception as e:
-            self.logger.error(f"Map points conversion error: {e}")
+            if self.logger:
+                self.logger.error(f"Map points conversion error: {e}")
     
     def _trajectory_callback(self, msg: Path):
         """Handle SLAM trajectory updates."""
+        if not ROS_AVAILABLE:
+            return  # Skip callback if ROS is not available
+            
         trajectory = []
         
         for pose_stamped in msg.poses:
@@ -264,6 +299,9 @@ class ROSBridge:
     
     def _ate_callback(self, msg: Float32):
         """Handle ATE (Absolute Trajectory Error) updates."""
+        if not ROS_AVAILABLE:
+            return  # Skip callback if ROS is not available
+            
         self.latest_ate = msg.data
     
     def publish_stereo_images(self, left_image: np.ndarray, right_image: np.ndarray,
@@ -452,7 +490,8 @@ class ROSBridge:
         self.ros_thread.daemon = True
         self.ros_thread.start()
         
-        self.logger.info("ROS2 thread started")
+        if self.logger:
+            self.logger.info("ROS2 thread started")
     
     def stop_ros_thread(self):
         """Stop ROS2 spinning thread."""
@@ -460,15 +499,18 @@ class ROSBridge:
         if self.ros_thread and self.ros_thread.is_alive():
             self.ros_thread.join(timeout=1.0)
         
-        self.logger.info("ROS2 thread stopped")
+        if self.logger:
+            self.logger.info("ROS2 thread stopped")
     
     def _ros_spin_thread(self):
         """ROS2 spinning thread function."""
-        while self.is_running and ROS_AVAILABLE and rclpy.ok():
+        while self.is_running and ROS_AVAILABLE:
             try:
-                rclpy.spin_once(self, timeout_sec=0.1)
+                if rclpy.ok():
+                    rclpy.spin_once(self, timeout_sec=0.1)
             except Exception as e:
-                self.logger.error(f"ROS spin error: {e}")
+                if self.logger:
+                    self.logger.error(f"ROS spin error: {e}")
                 time.sleep(0.1)
     
     def shutdown(self):
@@ -476,9 +518,14 @@ class ROSBridge:
         self.stop_ros_thread()
         
         if ROS_AVAILABLE:
-            self.destroy_node()
+        if ROS_AVAILABLE:
+            try:
+                self.destroy_node()
+            except:
+                pass  # Node might already be destroyed
             
             if rclpy.ok():
                 rclpy.shutdown()
         
-        self.logger.info("ROS2 Bridge shutdown")
+        if self.logger:
+            self.logger.info("ROS2 Bridge shutdown")
