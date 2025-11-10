@@ -116,7 +116,7 @@ class SensorBridge:
         self.orb_detector = cv2.ORB_create(nfeatures=500)
         
         # Depth image processor
-        self.depth_processor = cv2.createStereoBM(numDisparities=64, blockSize=15)
+        self.depth_processor = cv2.StereoBM_create(numDisparities=64, blockSize=15)
         
         # Occupancy histogram sectors (24-sector division as per Table 1)
         self.sector_angles = np.linspace(0, 2*np.pi, self.occupancy_sectors, endpoint=False)

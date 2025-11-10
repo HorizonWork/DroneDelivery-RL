@@ -24,6 +24,10 @@ class GAECalculator:
                    dones: np.ndarray, next_value: float, 
                    next_done: bool) -> Tuple[np.ndarray, np.ndarray]:
         """
+        # Support both 'lam' and 'lambda_' parameter names
+        if 'lam' in locals() and lam is not None:
+            lambda_ = lam
+
         Compute GAE advantages and returns.
         
         Args:

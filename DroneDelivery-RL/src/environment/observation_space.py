@@ -1,6 +1,6 @@
 """
 Observation Space Implementation
-Implements exact 35-dimensional observation space from Table 1.
+Implements exact 40-dimensional observation space from Table 1.
 """
 
 import numpy as np
@@ -35,7 +35,7 @@ class ObservationConfig:
 
 class ObservationSpace:
     """
-    35-dimensional observation space implementation.
+    40-dimensional observation space implementation.
     Exactly matches Table 1 from report.
     """
     
@@ -110,7 +110,7 @@ class ObservationSpace:
                          sensor_data: Dict[str, Any],
                          slam_data: Dict[str, Any]) -> np.ndarray:
         """
-        Build complete 35-dimensional observation vector.
+        Build complete 40-dimensional observation vector.
         
         Args:
             drone_state: Current drone state (position, orientation, velocity)
@@ -119,7 +119,7 @@ class ObservationSpace:
             slam_data: SLAM estimates (pose, ATE)
             
         Returns:
-            35-dimensional observation vector
+            40-dimensional observation vector
         """
         current_time = time.time()
         observation = np.zeros(self.total_dim, dtype=np.float32)
