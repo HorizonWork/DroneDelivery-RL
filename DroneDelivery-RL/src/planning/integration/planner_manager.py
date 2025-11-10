@@ -11,6 +11,9 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
+from src.bridges.airsim_bridge import AirSimBridge
+from src.environment.sensor_interface import SensorInterface
+from src.planning.integration.execution_monitor import ExecutionMonitor
 from src.planning.global_planner.astar_planner import AStarPlanner, PlanningResult
 from src.planning.local_planner.srrt_planner import SRRTPlanner
 

@@ -3,7 +3,7 @@
 import pytest
 import numpy as np
 from unittest.mock import patch, MagicMock
-from src.environment.airsim_env import AirSimEnv
+from src.environment.airsim_env import AirSimEnvironment
 from src.environment.drone_controller import DroneController
 from src.environment.action_space import ActionSpace
 from src.environment.observation_space import ObservationSpace
@@ -42,7 +42,7 @@ class TestEnvironment:
     def test_environment_initialization(self):
         """Test environment initialization"""
         try:
-            env = AirSimEnv()
+            env = AirSimEnvironment()
             assert env is not None
             assert hasattr(env, 'reset')
             assert hasattr(env, 'step')
@@ -54,7 +54,7 @@ class TestEnvironment:
     def test_environment_reset(self):
         """Test environment reset functionality"""
         try:
-            env = AirSimEnv()
+            env = AirSimEnvironment()
             obs = env.reset()
             assert obs is not None
             assert isinstance(obs, dict) or isinstance(obs, np.ndarray)
@@ -65,7 +65,7 @@ class TestEnvironment:
     def test_environment_step(self):
         """Test environment step functionality"""
         try:
-            env = AirSimEnv()
+            env = AirSimEnvironment()
             env.reset()
             
             # Test a simple action (e.g., hover)
@@ -84,7 +84,7 @@ class TestEnvironment:
     def test_environment_observation_shape(self):
         """Test that observations have the expected shape"""
         try:
-            env = AirSimEnv()
+            env = AirSimEnvironment()
             obs = env.reset()
             obs_space = ObservationSpace()
             
@@ -105,7 +105,7 @@ class TestEnvironment:
     def test_environment_reward_calculation(self):
         """Test reward calculation functionality"""
         try:
-            env = AirSimEnv()
+            env = AirSimEnvironment()
             env.reset()
             
             # Perform a step and check reward

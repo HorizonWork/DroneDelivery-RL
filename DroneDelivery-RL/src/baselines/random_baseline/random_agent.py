@@ -4,7 +4,7 @@ Performs random exploration as lower bound baseline.
 """
 
 import numpy as np
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, List
 import random
 
 class RandomAgent:
