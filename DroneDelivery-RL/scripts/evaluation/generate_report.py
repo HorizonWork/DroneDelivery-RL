@@ -19,7 +19,8 @@ import numpy as np
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from utils import setup_logging, SystemVisualizer, TrajectoryPlotter
+from src.utils import setup_logging
+from src.utils.visualization import SystemVisualizer, TrajectoryPlotter
 
 class ReportGenerator:
     """

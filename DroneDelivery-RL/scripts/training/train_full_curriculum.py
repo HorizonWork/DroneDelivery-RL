@@ -1,26 +1,5 @@
 #!/usr/bin/env python3
 """
-Complete 5M timestep curriculum training
-""",
-from src.rl.training.trainer import Trainer
-from src.rl.agents.ppo_agent import PPOAgent
-from src.environment.airsim_env import AirSimEnv
-
-def main():
-    # Initialize environment and agent
-    env = AirSimEnv()
-    agent = PPOAgent(env.observation_space, env.action_space)
-    trainer = Trainer(agent, env)
-    
-    # Train with full curriculum (5M timesteps)
-    trainer.train(total_timesteps=50000)
-    
-    print("Training completed!")
-
-if __name__ == "__main__":
-    main()
-#!/usr/bin/env python3
-"""
 Full Curriculum Training Script
 Implements complete curriculum learning as described in research paper.
 Three phases: Single floor → Two floors → Five floors with increasing complexity.
@@ -39,9 +18,11 @@ import numpy as np
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from environment import DroneEnvironment
-from rl import PPOAgent, CurriculumManager, initialize_rl_system
-from utils import setup_logging, load_config
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.training.curriculum_trainer import CurriculumManager
+from src.rl.initialization import initialize_rl_system
+from src.utils import setup_logging, load_config
 
 class FullCurriculumTrainer:
     """

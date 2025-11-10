@@ -230,8 +230,17 @@ python scripts/utilities/analyze_energy.py \
 # Install development dependencies
 pip install -e .[dev]
 
-# Run tests
-pytest tests/
+# Run all tests (syntax, unit, integration)
+python run_tests.py
+
+# Run specific test types
+python -m pytest tests/unit/ -v          # Unit tests only
+python -m pytest tests/integration/ -v   # Integration tests only
+python -m pytest tests/ -k "airsim" -v   # AirSim-specific tests only
+python -m pytest tests/ -k "environment" -v # Environment tests only
+python -m pytest tests/ -k "sensor" -v   # Sensor integration tests only
+python -m pytest tests/ -k "slam" -v     # SLAM integration tests only
+python -m pytest tests/ -k "ros" -v      # ROS integration tests only
 
 # Code formatting
 black src/ scripts/

@@ -4,24 +4,29 @@ Manages ROS2 integration for SLAM data exchange and system coordination.
 Connects with ORB-SLAM3 ROS2 nodes from old report setup.
 """
 
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+try:
+    import rclpy
+    from rclpy.node import Node
+    from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
+    from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3Stamped
+    from sensor_msgs.msg import Image, Imu, PointCloud2, CompressedImage
+    from nav_msgs.msg import Path, OccupancyGrid
+    from std_msgs.msg import Header, Float32, Bool
+    from tf2_ros import TransformBroadcaster, Buffer, TransformListener
+    from tf2_geometry_msgs import do_transform_pose
+    import tf_transformations
+    ROS_AVAILABLE = True
+except ImportError:
+    ROS_AVAILABLE = False
+    import logging
+    logging.warning("ROS2 not available - ROS bridge disabled")
+
 import numpy as np
 import logging
 from typing import Dict, List, Tuple, Optional, Any, Callable
 from dataclasses import dataclass
 import threading
 import time
-
-# ROS2 message types
-from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3Stamped
-from sensor_msgs.msg import Image, Imu, PointCloud2, CompressedImage
-from nav_msgs.msg import Path, OccupancyGrid
-from std_msgs.msg import Header, Float32, Bool
-from tf2_ros import TransformBroadcaster, Buffer, TransformListener
-from tf2_geometry_msgs import do_transform_pose
-import tf_transformations
 
 # CV bridge for image conversion
 try:
@@ -63,13 +68,17 @@ class ROSTopics:
     battery: str = "/drone/battery"
     collision: str = "/drone/collision"
 
-class ROSBridge(Node):
+class ROSBridge:
     """
     ROS2 bridge for SLAM and sensor data integration.
     Connects AirSim data with ORB-SLAM3 ROS2 nodes.
     """
     
     def __init__(self, config: Dict[str, Any]):
+        if not ROS_AVAILABLE:
+            raise ImportError("ROS2 is not available. Please install ROS2 to use ROSBridge.")
+        
+        rclpy.init()
         super().__init__('drone_delivery_bridge')
         
         self.config = config
@@ -111,19 +120,26 @@ class ROSBridge(Node):
         self.ros_thread: Optional[threading.Thread] = None
         self.is_running = False
         
-        # Initialize publishers and subscribers
-        self._setup_publishers()
-        self._setup_subscribers()
+        # Initialize publishers and subscribers if ROS is available
+        if ROS_AVAILABLE:
+            self._setup_publishers()
+            self._setup_subscribers()
+            
+            # Transform handling
+            self.tf_buffer = Buffer()
+            self.tf_listener = TransformListener(self.tf_buffer, self)
+            self.tf_broadcaster = TransformBroadcaster(self)
         
-        # Transform handling
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-        self.tf_broadcaster = TransformBroadcaster(self)
-        
-        self.logger.info("ROS2 Bridge initialized")
+        if ROS_AVAILABLE:
+            self.logger.info("ROS2 Bridge initialized")
+        else:
+            logging.warning("ROS2 Bridge not initialized due to missing ROS2 dependencies")
     
     def _setup_publishers(self):
         """Setup ROS2 publishers."""
+        if not ROS_AVAILABLE:
+            return
+            
         # Camera image publishers (for SLAM input)
         self.stereo_left_pub = self.create_publisher(
             Image, self.topics.stereo_left, self.sensor_qos
@@ -155,9 +171,12 @@ class ROSBridge(Node):
         
     def _setup_subscribers(self):
         """Setup ROS2 subscribers."""
+        if not ROS_AVAILABLE:
+            return
+            
         # SLAM output subscribers
         self.slam_pose_sub = self.create_subscription(
-            PoseStamped, self.topics.slam_pose, 
+            PoseStamped, self.topics.slam_pose,
             self._slam_pose_callback, self.sensor_qos
         )
         
@@ -237,7 +256,7 @@ class ROSBridge(Node):
                     pose_stamped.pose.orientation.y,
                     pose_stamped.pose.orientation.z
                 ),
-                timestamp=pose_stamced.header.stamp.sec + pose_stamped.header.stamp.nanosec * 1e-9
+                timestamp=pose_stamped.header.stamp.sec + pose_stamped.header.stamp.nanosec * 1e-9
             )
             trajectory.append(pose)
         
@@ -257,7 +276,7 @@ class ROSBridge(Node):
             right_image: Right camera image (numpy array)
             timestamp: Image timestamp (uses current time if None)
         """
-        if not self.cv_bridge:
+        if not ROS_AVAILABLE or not self.cv_bridge:
             return
         
         if timestamp is None:
@@ -292,6 +311,9 @@ class ROSBridge(Node):
         Args:
             imu_data: IMU data dictionary from AirSim
         """
+        if not ROS_AVAILABLE:
+            return
+            
         try:
             imu_msg = Imu()
             
@@ -329,6 +351,9 @@ class ROSBridge(Node):
             vx, vy, vz: Linear velocities (m/s)
             yaw_rate: Angular velocity (rad/s)
         """
+        if not ROS_AVAILABLE:
+            return
+            
         try:
             twist_msg = TwistStamped()
             twist_msg.header.stamp = self.get_clock().now().to_msg()
@@ -352,6 +377,9 @@ class ROSBridge(Node):
             battery_level: Battery level [0, 1]
             collision: Collision detected flag
         """
+        if not ROS_AVAILABLE:
+            return
+            
         try:
             # Battery
             battery_msg = Float32()
@@ -436,7 +464,7 @@ class ROSBridge(Node):
     
     def _ros_spin_thread(self):
         """ROS2 spinning thread function."""
-        while self.is_running and rclpy.ok():
+        while self.is_running and ROS_AVAILABLE and rclpy.ok():
             try:
                 rclpy.spin_once(self, timeout_sec=0.1)
             except Exception as e:
@@ -446,9 +474,11 @@ class ROSBridge(Node):
     def shutdown(self):
         """Shutdown ROS2 bridge."""
         self.stop_ros_thread()
-        self.destroy_node()
         
-        if rclpy.ok():
-            rclpy.shutdown()
+        if ROS_AVAILABLE:
+            self.destroy_node()
+            
+            if rclpy.ok():
+                rclpy.shutdown()
         
         self.logger.info("ROS2 Bridge shutdown")

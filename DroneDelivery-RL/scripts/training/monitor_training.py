@@ -22,7 +22,7 @@ import psutil
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from utils import setup_logging
+from src.utils.logger import setup_logging
 
 class TrainingMonitor:
     """

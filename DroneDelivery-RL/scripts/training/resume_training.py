@@ -18,10 +18,10 @@ import torch
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from environment import DroneEnvironment
-from rl import PPOAgent, CurriculumManager, initialize_rl_system
-from rl.utils import CheckpointManager, ObservationNormalizer, TensorBoardLogger
-from utils import setup_logging, load_config
+from src.environment import DroneEnvironment
+from src.rl import PPOAgent, CurriculumManager, initialize_rl_system
+from src.rl.utils import CheckpointManager, ObservationNormalizer, TensorBoardLogger
+from src.utils import setup_logging, load_config
 
 class TrainingResumer:
     """

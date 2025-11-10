@@ -6,7 +6,7 @@ Implements exact Equation (2) from report with all coefficients.
 import numpy as np
 import logging
 import time
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Optional, Any, List
 from dataclasses import dataclass
 
 @dataclass
@@ -231,14 +231,16 @@ class RewardFunction:
         
         # Acceleration-based thrust estimation
         # This is simplified - real model would consider full quadrotor dynamics
-        accel_x = vx / self.config.control_dt  # Simplified acceleration estimate
-        accel_y = vy / self.config.control_dt
-        accel_z = vz / self.config.control_dt
+        # For now, we'll use the velocity as a proxy for required acceleration
+        # In a real implementation, we would need previous velocity to compute acceleration
+        accel_x = vx  # Using velocity as a proxy for acceleration demand
+        accel_y = vy
+        accel_z = vz  # Keep z velocity separate for gravity compensation
         
         # Convert accelerations to thrust contributions
         thrust_x = self.config.drone_mass * accel_x / self.config.num_rotors
         thrust_y = self.config.drone_mass * accel_y / self.config.num_rotors
-        thrust_z = self.config.drone_mass * (accel_z + self.config.gravity) / self.config.num_rotors
+        thrust_z = self.config.drone_mass * (accel_z + self.config.gravity) / self.config.num_rotors  # Add gravity compensation to z-thrust
         
         # Distribute thrust among 4 motors (simplified quadrotor model)
         # Front-left, Front-right, Rear-left, Rear-right

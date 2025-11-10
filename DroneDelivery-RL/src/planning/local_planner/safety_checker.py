@@ -30,6 +30,7 @@ class SafetyChecker:
         self.min_clearance = config.get('min_clearance', 0.5)            # meters
         self.drone_radius = config.get('drone_radius', 0.2)             # meters
         self.safety_margin = config.get('safety_margin', 0.3)           # additional margin
+        self.default_obstacle_radius = config.get('obstacle_radius', 0.3)
         
         # Collision prediction
         self.prediction_horizon = config.get('prediction_horizon', 2.0)  # seconds

@@ -2,7 +2,6 @@
 """
 Test Scenarios Runner
 Runs comprehensive test scenarios for model validation.
-Includes stress tests, edge cases, and robustness evaluation.
 """
 
 import os
@@ -17,16 +16,18 @@ import time
 import torch
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from environment import DroneEnvironment
-from rl import PPOAgent, initialize_rl_system
-from utils import setup_logging, load_config
+# CORRECTED IMPORTS:
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.initialization import initialize_rl_system  # ← FIXED IMPORT
+from src.utils import setup_logging, load_config
+
 
 class TestScenariosRunner:
     """
     Comprehensive test scenario runner for robustness evaluation.
-    Tests edge cases, stress conditions, and failure modes.
     """
     
     def __init__(self, config_path: str, model_path: str):

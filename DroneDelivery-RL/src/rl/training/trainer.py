@@ -13,11 +13,19 @@ from typing import Dict, List, Tuple, Optional, Any, Callable
 from dataclasses import dataclass, field
 from collections import deque
 from pathlib import Path
-import wandb
 import json
 
-from ..agents.ppo_agent import PPOAgent
-from ..evaluation.evaluator import DroneEvaluator
+# Try wandb import (optional)
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+    logging.warning("wandb not available - logging will be limited")
+
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.evaluation.evaluator import DroneEvaluator
+
 
 @dataclass
 class TrainingConfig:
@@ -37,16 +45,18 @@ class TrainingConfig:
     resume_from_checkpoint: bool = False
     checkpoint_path: str = ""
 
+
 @dataclass
 class TrainingState:
     """Current training state."""
     timestep: int = 0
     episode: int = 0
     best_success_rate: float = 0.0
-    best_energy_efficiency: float = 0.0
+    best_energy_efficiency: float = float('inf')
     steps_since_improvement: int = 0
     current_lr: float = 3e-4
     training_start_time: float = 0.0
+
 
 class PPOTrainer:
     """
@@ -69,7 +79,7 @@ class PPOTrainer:
         self.evaluator = DroneEvaluator(evaluator_config)
         
         # Monitoring
-        self.use_wandb = config.get('use_wandb', False)
+        self.use_wandb = config.get('use_wandb', False) and WANDB_AVAILABLE
         self.training_metrics = {
             'episode_rewards': deque(maxlen=100),
             'episode_lengths': deque(maxlen=100), 
@@ -85,7 +95,7 @@ class PPOTrainer:
         
         # Setup directories
         self.checkpoint_dir = Path(self.training_config.checkpoint_dir)
-        self.checkpoint_dir.mkdir(exist_ok=True)
+        self.checkpoint_dir.mkdir(exist_ok=True, parents=True)
         
         if self.use_wandb:
             self._initialize_wandb(config.get('wandb', {}))
@@ -102,7 +112,7 @@ class PPOTrainer:
                 name=self.training_config.experiment_name,
                 config={
                     'total_timesteps': self.training_config.total_timesteps,
-                    'agent_config': self.agent.config.__dict__,
+                    'agent_config': self.agent.config.__dict__ if hasattr(self.agent.config, '__dict__') else self.agent.config,
                     'training_config': self.training_config.__dict__
                 }
             )
@@ -185,6 +195,9 @@ class PPOTrainer:
         self.logger.info(f"Final success rate: {final_evaluation.get('success_rate', 0):.1f}%")
         self.logger.info(f"Final energy efficiency: {final_evaluation.get('energy_efficiency', 0):.0f}J")
         
+        if self.use_wandb:
+            wandb.finish()
+        
         return results
     
     def _run_training_episode(self) -> Dict[str, Any]:
@@ -225,6 +238,9 @@ class PPOTrainer:
             
             observation = next_observation
         
+        # Track last observation for bootstrap value
+        self.agent.last_observation = observation
+        
         # Final position check
         final_position = info.get('position', (0, 0, 0))
         goal_position = info.get('goal_position', (0, 0, 0))
@@ -245,7 +261,7 @@ class PPOTrainer:
     def _perform_policy_update(self) -> Dict[str, float]:
         """Perform PPO policy update."""
         # Get final observation for bootstrap
-        final_obs = self.environment.get_observation()  # Would implement in environment
+        final_obs = getattr(self.agent, 'last_observation', np.zeros(self.agent.observation_dim))
         final_done = False  # Episode ongoing
         
         # Update policy
@@ -257,7 +273,7 @@ class PPOTrainer:
         """Perform periodic evaluation during training."""
         self.logger.info(f"Evaluating at timestep {self.state.timestep:,}")
         
-        # Quick evaluation with trained policy (deterministic)
+        # FIX: Use .policy attribute (as defined in PPOAgent)
         self.agent.policy.eval()  # Set to evaluation mode
         
         evaluation_results = []
@@ -289,7 +305,8 @@ class PPOTrainer:
         
         # Calculate evaluation metrics
         success_rate = np.mean([r['success'] for r in evaluation_results]) * 100
-        avg_energy = np.mean([r['energy'] for r in evaluation_results if r['success']])
+        successful_episodes = [r for r in evaluation_results if r['success']]
+        avg_energy = np.mean([r['energy'] for r in successful_episodes]) if successful_episodes else float('inf')
         
         eval_summary = {
             'timestep': self.state.timestep,
@@ -297,6 +314,8 @@ class PPOTrainer:
             'energy_efficiency': avg_energy,
             'avg_reward': np.mean([r['reward'] for r in evaluation_results])
         }
+        
+        self.logger.info(f"Evaluation: {success_rate:.1f}% success, {avg_energy:.0f}J energy")
         
         return eval_summary
     
@@ -319,6 +338,8 @@ class PPOTrainer:
         if improvement:
             self.state.steps_since_improvement = 0
             self.logger.info(f"New best performance: {success_rate:.1f}% success, {energy_efficiency:.0f}J energy")
+            # Save best model
+            self._save_checkpoint(is_best=True)
         else:
             self.state.steps_since_improvement += self.training_config.eval_frequency
     
@@ -347,9 +368,17 @@ class PPOTrainer:
         # Calculate recent success rate
         recent_episodes = list(self.training_metrics['episode_rewards'])[-20:]
         if len(recent_episodes) >= 20:
-            recent_successes = [1 if r > -500 else 0 for r in recent_episodes]  # Heuristic success detection
+            # Heuristic: Positive reward indicates success
+            recent_successes = [1 if r > -100 else 0 for r in recent_episodes]
             success_rate = np.mean(recent_successes)
             self.training_metrics['success_rates'].append(success_rate)
+        
+        # Execute episode callbacks
+        for callback in self.episode_callbacks:
+            try:
+                callback(episode_result)
+            except Exception as e:
+                self.logger.error(f"Episode callback error: {e}")
     
     def _record_update_metrics(self, update_result: Dict[str, float]):
         """Record policy update metrics."""
@@ -357,6 +386,13 @@ class PPOTrainer:
             self.training_metrics['policy_losses'].append(update_result['policy_loss'])
         if 'value_loss' in update_result:
             self.training_metrics['value_losses'].append(update_result['value_loss'])
+        
+        # Execute update callbacks
+        for callback in self.update_callbacks:
+            try:
+                callback(update_result)
+            except Exception as e:
+                self.logger.error(f"Update callback error: {e}")
     
     def _log_training_progress(self):
         """Log training progress."""
@@ -403,7 +439,7 @@ class PPOTrainer:
             
             wandb.log(log_dict, step=self.state.timestep)
     
-    def _save_checkpoint(self):
+    def _save_checkpoint(self, is_best: bool = False):
         """Save training checkpoint."""
         checkpoint_data = {
             'agent_state': self.agent.policy.state_dict(),
@@ -425,11 +461,16 @@ class PPOTrainer:
             'training_config': self.training_config.__dict__
         }
         
-        checkpoint_path = self.checkpoint_dir / f"checkpoint_{self.state.timestep:08d}.pt"
+        if is_best:
+            checkpoint_path = self.checkpoint_dir / f"best_model.pt"
+        else:
+            checkpoint_path = self.checkpoint_dir / f"checkpoint_{self.state.timestep:08d}.pt"
+        
         torch.save(checkpoint_data, checkpoint_path)
         
-        # Keep only recent checkpoints
-        self._cleanup_old_checkpoints()
+        # Keep only recent checkpoints (except best)
+        if not is_best:
+            self._cleanup_old_checkpoints()
         
         self.logger.info(f"Checkpoint saved: {checkpoint_path}")
     
@@ -464,6 +505,7 @@ class PPOTrainer:
             
         except Exception as e:
             self.logger.error(f"Failed to load checkpoint: {e}")
+            raise
     
     def _cleanup_old_checkpoints(self, keep_last: int = 3):
         """Keep only the most recent checkpoints."""
@@ -471,7 +513,10 @@ class PPOTrainer:
         
         if len(checkpoints) > keep_last:
             for old_checkpoint in checkpoints[:-keep_last]:
-                old_checkpoint.unlink()
+                try:
+                    old_checkpoint.unlink()
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete old checkpoint: {e}")
     
     def _final_evaluation(self) -> Dict[str, Any]:
         """Perform comprehensive final evaluation."""
@@ -492,6 +537,8 @@ class PPOTrainer:
     def _save_final_model(self):
         """Save final trained model."""
         model_path = self.checkpoint_dir / f"{self.training_config.experiment_name}_final.pt"
+        
+        # Save using agent's save_model method
         self.agent.save_model(str(model_path))
         
         # Also save training summary
@@ -505,7 +552,7 @@ class PPOTrainer:
             'best_success_rate': self.state.best_success_rate,
             'best_energy_efficiency': self.state.best_energy_efficiency,
             'final_learning_rate': self.state.current_lr,
-            'agent_config': self.agent.config.__dict__,
+            'agent_config': self.agent.config.__dict__ if hasattr(self.agent.config, '__dict__') else self.agent.config,
             'training_config': self.training_config.__dict__
         }
         

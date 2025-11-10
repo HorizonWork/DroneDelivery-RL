@@ -9,12 +9,13 @@ import subprocess
 import os
 import sys
 import ctypes
+import cv2
 from typing import Dict, List, Tuple, Optional, Any
 import tempfile
 import yaml
 
-from .coordinate_transforms import CoordinateTransforms
-from .pose_estimator import PoseEstimate
+from src.localization.coordinate_transforms import CoordinateTransforms
+from src.localization.pose_estimator import PoseEstimate, PoseEstimator
 
 class ORBSLAM3Wrapper:
     """
@@ -167,7 +168,6 @@ class ORBSLAM3Wrapper:
                 return None
             
             # Use pose estimator for motion estimation
-            from .pose_estimator import PoseEstimator
             estimator = PoseEstimator(self.config)
             
             pose = estimator.estimate_pose_stereo(kp_left, desc_left, kp_right, desc_right, timestamp)

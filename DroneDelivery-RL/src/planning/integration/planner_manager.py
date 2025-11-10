@@ -11,8 +11,8 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
-from ..global_planner.astar_planner import AStarPlanner, PlanningResult
-from ..local_planner.srrt_planner import SRRTPlanner
+from src.planning.global_planner.astar_planner import AStarPlanner, PlanningResult
+from src.planning.local_planner.srrt_planner import SRRTPlanner
 
 class PlanningMode(Enum):
     """Planning execution modes."""
@@ -38,7 +38,9 @@ class PlannerManager:
     Coordinates A* global planning with S-RRT local replanning.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any],
+                    airsim_bridge: AirSimBridge,
+                    sensor_interface: SensorInterface):
         self.config = config
         self.logger = logging.getLogger(__name__)
         
@@ -68,6 +70,13 @@ class PlannerManager:
             'replan_triggers': 0
         }
         
+        # Initialize execution monitor with dependencies
+        self.execution_monitor = ExecutionMonitor(
+            config.get('execution_monitor', {}),
+            airsim_bridge,
+            sensor_interface        
+    )
+    
         self.logger.info("Planner Manager initialized")
         self.logger.info(f"Mode: {self.planning_state.mode.value}")
         self.logger.info(f"Replanning threshold: {self.replanning_threshold}m")

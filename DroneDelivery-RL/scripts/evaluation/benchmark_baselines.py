@@ -4,7 +4,6 @@ Benchmark Baselines Script
 Evaluates baseline methods (A* Only, RRT+PID, Random) for Table 3 comparison.
 Generates comprehensive baseline performance data.
 """
-
 import os
 import sys
 import argparse
@@ -12,16 +11,23 @@ import logging
 import json
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import time
+import torch  # Nếu cần
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from environment import DroneEnvironment
-from planning import GlobalPlanner, LocalPlanner
-from utils import setup_logging, load_config, DataRecorder
-from rl.evaluation import BaselineComparator
+# CORRECTED IMPORTS:
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.evaluation.evaluator import DroneEvaluator
+from src.rl.evaluation.baseline_comparator import BaselineComparator
+from src.rl.evaluation.energy_analyzer import EnergyAnalyzer
+from src.rl.evaluation.trajectory_analyzer import TrajectoryAnalyzer
+from src.planning.global_planner.astar_planner import AStarPlanner as GlobalPlanner
+from src.planning.local_planner.srrt_planner import SRRTPlanner as LocalPlanner
+from src.utils import setup_logging, load_config, SystemVisualizer, DataRecorder
 
 class BaselineBenchmark:
     """

@@ -14,10 +14,10 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from pathlib import Path
 
-from .metrics_collector import MetricsCollector
-from .baseline_comparator import BaselineComparator
-from .energy_analyzer import EnergyAnalyzer
-from .trajectory_analyzer import TrajectoryAnalyzer
+from src.rl.evaluation.metrics_collector import MetricsCollector
+from src.rl.evaluation.baseline_comparator import BaselineComparator
+from src.rl.evaluation.energy_analyzer import EnergyAnalyzer
+from src.rl.evaluation.trajectory_analyzer import TrajectoryAnalyzer
 
 @dataclass
 class EpisodeResult:

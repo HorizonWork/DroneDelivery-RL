@@ -21,9 +21,10 @@ import numpy as np
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from environment import DroneEnvironment
-from rl import PPOAgent, initialize_rl_system
-from utils import setup_logging, load_config
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.initialization import initialize_rl_system
+from src.utils import setup_logging, load_config
 
 class HyperparameterSearcher:
     """

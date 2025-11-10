@@ -17,12 +17,18 @@ import time
 import torch
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from environment import DroneEnvironment
-from rl import PPOAgent, DroneEvaluator, initialize_rl_system
-from rl.evaluation import BaselineComparator, EnergyAnalyzer, TrajectoryAnalyzer
-from utils import setup_logging, load_config, SystemVisualizer
+# CORRECTED IMPORTS:
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.evaluation.evaluator import DroneEvaluator
+from src.rl.evaluation.baseline_comparator import BaselineComparator
+from src.rl.evaluation.energy_analyzer import EnergyAnalyzer
+from src.rl.evaluation.trajectory_analyzer import TrajectoryAnalyzer
+from src.rl.initialization import initialize_rl_system  # ← FIXED IMPORT
+from src.utils import setup_logging, load_config, SystemVisualizer
+
 
 class ModelEvaluator:
     """

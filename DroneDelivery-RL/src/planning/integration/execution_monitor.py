@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from collections import deque
 from enum import Enum
 
+from src.bridges.airsim_bridge import AirSimBridge
+from src.environment.sensor_interface import SensorInterface
+
 class ExecutionStatus(Enum):
     """Path execution status."""
     IDLE = "idle"
@@ -61,10 +64,16 @@ class ExecutionMonitor:
     Tracks progress, detects anomalies, and triggers replanning.
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any],
+                    airsim_bridge: AirSimBridge,
+                    sensor_interface: SensorInterface):
         self.config = config
         self.logger = logging.getLogger(__name__)
         
+        #Store references to external systems
+        self.airsim_bridge = airsim_bridge
+        self.sensor_interface = sensor_interface
+
         # Monitoring parameters
         self.monitoring_frequency = config.get('monitoring_frequency', 10.0)  # Hz
         self.waypoint_tolerance = config.get('waypoint_tolerance', 1.0)       # meters
@@ -436,14 +445,97 @@ class ExecutionMonitor:
                 self.logger.error(f"Event callback error: {e}")
     
     def _get_current_position(self) -> Optional[Tuple[float, float, float]]:
-        """Get current drone position (placeholder - would interface with environment)."""
-        # This would interface with the actual environment/drone state
-        return None  # Placeholder
-    
+        """
+        Get current drone position from AirSim bridge.
+        
+        Returns:
+            Current position (x, y, z) in world frame, or None if unavailable
+        """
+        try:
+            # Get drone state from AirSim
+            drone_state = self.airsim_bridge.get_drone_state()
+            
+            if drone_state is None:
+                self.logger.warning("Failed to get drone state from AirSim")
+                return None
+            
+            # Extract position (x, y, z)
+            position = drone_state.position
+            
+            if position is None or len(position) != 3:
+                self.logger.warning(f"Invalid position data: {position}")
+                return None
+            
+            return tuple(position)
+            
+        except Exception as e:
+            self.logger.error(f"Error getting current position: {e}")
+            return None
+
     def _get_current_obstacles(self) -> List[Tuple[float, float, float]]:
-        """Get current obstacle positions (placeholder - would interface with sensors)."""
-        # This would interface with sensor systems
-        return []  # Placeholder
+        """
+        Get current obstacle positions from sensor interface.
+        
+        Returns:
+            List of obstacle positions [(x, y, z), ...] in world frame
+        """
+        try:
+            # Get latest sensor data
+            sensor_data = self.sensor_interface.get_latest_data()
+            
+            if sensor_data is None:
+                self.logger.debug("No sensor data available")
+                return []
+            
+            obstacles = []
+            
+            # Extract obstacles from depth image/occupancy histogram
+            if hasattr(sensor_data, 'occupancy_histogram') and sensor_data.occupancy_histogram is not None:
+                # Occupancy histogram has 24 sectors with distances
+                # Convert to obstacle positions based on current drone position
+                current_pos = self._get_current_position()
+                if current_pos is None:
+                    return []
+                
+                histogram = sensor_data.occupancy_histogram
+                sector_angle = 2 * np.pi / 24  # 15 degrees per sector
+                
+                for i, distance in enumerate(histogram):
+                    # Only consider sectors with detected obstacles
+                    # (distance < max_detection_range, e.g., 5m)
+                    if 0.5 < distance < 5.0:  # Min 0.5m, max 5m
+                        angle = i * sector_angle
+                        
+                        # Convert polar to Cartesian (simplified 2D projection)
+                        obstacle_x = current_pos[0] + distance * np.cos(angle)
+                        obstacle_y = current_pos[1] + distance * np.sin(angle)
+                        obstacle_z = current_pos[2]  # Same height as drone
+                        
+                        obstacles.append((obstacle_x, obstacle_y, obstacle_z))
+            
+            # Alternative: Get obstacles from depth image directly
+            elif hasattr(sensor_data, 'depth_features') and sensor_data.depth_features is not None:
+                depth_features = sensor_data.depth_features
+                
+                if 'min_distance' in depth_features and depth_features['min_distance'] < 2.0:
+                    # There's a close obstacle, estimate position
+                    current_pos = self._get_current_position()
+                    if current_pos:
+                        # Simple forward obstacle detection
+                        min_dist = depth_features['min_distance']
+                        obstacles.append((
+                            current_pos[0] + min_dist,  # Assume forward direction
+                            current_pos[1],
+                            current_pos[2]
+                        ))
+            
+            self.logger.debug(f"Detected {len(obstacles)} obstacles")
+            return obstacles
+            
+        except Exception as e:
+            self.logger.error(f"Error getting current obstacles: {e}")
+            return []
+
     
     def update_path(self, new_path: List[Tuple[float, float, float]]):
         """

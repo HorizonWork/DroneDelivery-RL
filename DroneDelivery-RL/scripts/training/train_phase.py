@@ -19,10 +19,14 @@ import numpy as np
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from environment import DroneEnvironment
-from rl import PPOAgent, CurriculumManager, initialize_rl_system
-from rl.utils import CheckpointManager, ObservationNormalizer, TensorBoardLogger
-from utils import setup_logging, load_config, DataRecorder
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.training.curriculum_trainer import CurriculumManager
+from src.rl.initialization import initialize_rl_system
+from src.rl.utils.checkpoint_manager import CheckpointManager
+from src.rl.utils.normalization import ObservationNormalizer
+from src.rl.utils.tensorboard_logger import TensorBoardLogger
+from src.utils import setup_logging, load_config, DataRecorder
 
 class MainPPOTrainer:
     """

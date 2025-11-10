@@ -5,6 +5,7 @@ Integrates global A* and local S-RRT paths seamlessly.
 """
 
 import numpy as np
+import time
 import logging
 from typing import List, Tuple, Optional, Dict, Any
 from scipy.interpolate import splprep, splev, interp1d

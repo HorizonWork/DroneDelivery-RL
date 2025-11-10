@@ -14,11 +14,11 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
-from .trainer import PPOTrainer, TrainingConfig, TrainingState
-from .phase_1_trainer import Phase1Trainer
-from .phase_2_trainer import Phase2Trainer
-from .phase_3_trainer import Phase3Trainer
-from ..agents.ppo_agent import PPOAgent
+from src.rl.training.trainer import PPOTrainer, TrainingConfig, TrainingState
+from src.rl.training.phase_1_trainer import Phase1Trainer
+from src.rl.training.phase_2_trainer import Phase2Trainer
+from src.rl.training.phase_3_trainer import Phase3Trainer
+from src.rl.agents.ppo_agent import PPOAgent
 
 class CurriculumPhase(Enum):
     """Curriculum learning phases."""

@@ -10,10 +10,7 @@ from dataclasses import dataclass
 import json
 
 # Import shared data structures
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'astar_baseline'))
-from astar_baseline.evaluator import EpisodeResult, EvaluationMetrics
+from ..astar_baseline.evaluator import EpisodeResult, EvaluationMetrics
 
 class RandomEvaluator:
     """

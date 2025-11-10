@@ -19,7 +19,7 @@ import time
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
 
-from utils import setup_logging
+from src.utils import setup_logging
 
 class PerformanceValidator:
     """
@@ -30,7 +30,7 @@ class PerformanceValidator:
     def __init__(self, config_path: str = None):
         # Setup logging
         if config_path:
-            from utils import load_config
+            from src.utils import load_config
             config = load_config(config_path)
             self.logger_system = setup_logging(config.logging)
         

@@ -156,7 +156,7 @@ class TargetManager:
             num_rows = int(np.ceil(self.targets_per_floor / num_cols))
             
             x_positions = np.linspace(x_min, x_max, num_cols)
-            y_positions = np.linespace(y_min, y_max, num_rows)
+            y_positions = np.linspace(y_min, y_max, num_rows)
             
             for i, y in enumerate(y_positions):
                 for j, x in enumerate(x_positions):

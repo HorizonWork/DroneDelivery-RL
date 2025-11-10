@@ -14,8 +14,9 @@ from typing import Dict, List, Tuple, Optional, Any, NamedTuple
 from dataclasses import dataclass, field
 from collections import deque
 
-from .actor_critic import ActorCriticNetwork
-from .gae_calculator import GAECalculator
+# ABSOLUTE IMPORTS - Simple and clear
+from src.rl.agents.actor_critic import ActorCriticNetwork
+from src.rl.agents.gae_calculator import GAECalculator
 
 @dataclass
 class PPOConfig:

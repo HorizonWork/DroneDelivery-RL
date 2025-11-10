@@ -11,18 +11,18 @@ import threading
 from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass
 
-from .observation_space import ObservationSpace
-from .action_space import ActionSpace
-from .reward_function import RewardFunction
-from .target_manager import TargetManager
-from .curriculum_manager import CurriculumManager
-from .sensor_interface import SensorInterface
-from .drone_controller import DroneController
-from .world_builder import WorldBuilder
+from src.environment.observation_space import ObservationSpace
+from src.environment.action_space import ActionSpace
+from src.environment.reward_function import RewardFunction
+from src.environment.target_manager import TargetManager
+from src.environment.curriculum_manager import CurriculumManager
+from src.environment.sensor_interface import SensorInterface
+from src.environment.drone_controller import DroneController
+from src.environment.world_builder import WorldBuilder
 
-from ..bridges.airsim_bridge import AirSimBridge
-from ..bridges.slam_bridge import SLAMBridge
-from ..bridges.sensor_bridge import SensorBridge
+from src.bridges.airsim_bridge import AirSimBridge
+from src.bridges.slam_bridge import SLAMBridge
+from src.bridges.sensor_bridge import SensorBridge
 
 @dataclass
 class EpisodeInfo:

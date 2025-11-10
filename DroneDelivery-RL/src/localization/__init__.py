@@ -1,24 +1,13 @@
-"""
-Localization module for DroneDelivery-RL.
-Implements centimeter-scale VI-SLAM using ORB-SLAM3.
-"""
-
-from .vi_slam import VisualInertialSLAM
-from .orb_slam3 import ORBSLAM3System
-from .feature_extractor import ORBFeatureExtractor
-from .imu_preintegration import IMUPreintegrator
-from .bundle_adjustment import BundleAdjuster
-from .map_manager import MapManager
-from .trajectory_tracker import TrajectoryTracker
-from .ate_calculator import ATECalculator
+from src.localization.vi_slam_interface import VISLAMInterface
+from src.localization.orb_slam3_wrapper import ORBSLAM3Wrapper
+from src.localization.coordinate_transforms import CoordinateTransforms
+from src.localization.ate_calculator import ATECalculator
+from src.localization.pose_estimator import PoseEstimator
 
 __all__ = [
-    'VisualInertialSLAM',
-    'ORBSLAM3System',
-    'ORBFeatureExtractor',
-    'IMUPreintegrator',
-    'BundleAdjuster',
-    'MapManager',
-    'TrajectoryTracker',
-    'ATECalculator'
+    'VISLAMInterface',
+    'ORBSLAM3Wrapper', 
+    'CoordinateTransforms',
+    'ATECalculator',
+    'PoseEstimator'
 ]

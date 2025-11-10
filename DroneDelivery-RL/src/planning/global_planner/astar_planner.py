@@ -12,8 +12,8 @@ from typing import Dict, List, Tuple, Optional, Any, Set
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from .heuristics import AStarHeuristics
-from .occupancy_grid import OccupancyGrid3D
+from src.planning.global_planner.heuristics import AStarHeuristics
+from src.planning.global_planner.occupancy_grid import OccupancyGrid3D
 
 @dataclass
 class AStarNode:
