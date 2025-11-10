@@ -79,14 +79,33 @@ class EnvironmentBuilder:
     
     def setup_basic_logging(self):
         """Setup basic logging for environment builder."""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.StreamHandler(sys.stdout),
-                logging.FileHandler('setup.log')
-            ]
-        )
+        # Set UTF-8 encoding for logging on Windows
+        import locale
+        if platform.system() == 'Windows':
+            # Use ASCII-compatible characters instead of Unicode symbols
+            pass  # Just ensuring UTF-8 support where possible
+        
+        # Create a more compatible logging setup that works across Python versions
+        logger = logging.getLogger()
+        logger.setLevel(logging.INFO)
+        
+        # Clear any existing handlers
+        logger.handlers.clear()
+        
+        # Create formatters
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        
+        # Create console handler without encoding parameter for compatibility
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        
+        # Create file handler with encoding (this is supported in all relevant Python versions)
+        file_handler = logging.FileHandler('setup.log', encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        
+        # Add handlers to logger
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
     
     def build_complete_environment(self) -> bool:
         """
@@ -151,7 +170,7 @@ class EnvironmentBuilder:
             self.logger.error(f"Python 3.8+ required, found {sys.version_info}")
             prerequisites_ok = False
         else:
-            self.logger.info(f"✓ Python {self.python_version}")
+            self.logger.info(f"[OK] Python {self.python_version}")
         
         # Check conda/mamba
         conda_available = shutil.which('conda') is not None
@@ -163,13 +182,13 @@ class EnvironmentBuilder:
             prerequisites_ok = False
         else:
             package_manager = 'mamba' if mamba_available else 'conda'
-            self.logger.info(f"✓ {package_manager.title()} package manager")
+            self.logger.info(f"[OK] {package_manager.title()} package manager")
         
         # Check git
         if not shutil.which('git'):
             self.logger.warning("Git not found (recommended for development)")
         else:
-            self.logger.info("✓ Git")
+            self.logger.info("[OK] Git")
         
         return prerequisites_ok
     
@@ -207,9 +226,15 @@ class EnvironmentBuilder:
     def _setup_conda_environment(self) -> bool:
         """Setup conda environment."""
         try:
+            # Check if conda is available
+            conda_cmd = shutil.which('conda')
+            if not conda_cmd:
+                self.logger.error("Conda command not found. Please ensure conda is installed and in PATH.")
+                return False
+            
             # Check if environment already exists
-            cmd = ['conda', 'env', 'list']
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            cmd = [conda_cmd, 'env', 'list']
+            result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
             
             if self.conda_env_name in result.stdout:
                 self.logger.info(f"Conda environment '{self.conda_env_name}' already exists")
@@ -218,45 +243,74 @@ class EnvironmentBuilder:
             # Create new environment
             self.logger.info(f"Creating conda environment: {self.conda_env_name}")
             cmd = [
-                'conda', 'create', '-n', self.conda_env_name, 
+                conda_cmd, 'create', '-n', self.conda_env_name,
                 f'python={self.python_version}', '-y'
             ]
-            subprocess.run(cmd, check=True, capture_output=True)
+            subprocess.run(cmd, check=True, capture_output=True, shell=True)
             
-            self.logger.info(f"✓ Conda environment '{self.conda_env_name}' created")
+            self.logger.info(f"[OK] Conda environment '{self.conda_env_name}' created")
             return True
             
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Conda environment setup failed: {e}")
             return False
+        except FileNotFoundError:
+            self.logger.error("Conda executable not found. Please ensure conda is properly installed and in system PATH.")
+            return False
     
     def _install_python_packages(self) -> bool:
         """Install Python packages in conda environment."""
         try:
+            conda_cmd = shutil.which('conda')
+            if not conda_cmd:
+                self.logger.error("Conda command not found. Please ensure conda is installed and in PATH.")
+                return False
+            
             # Install PyTorch first (special handling for CUDA)
             self.logger.info("Installing PyTorch...")
+            # Use the exact package specifications from python_requirements
+            # For PyTorch, we need to handle it specially due to the --index-url requirement
+            # First, extract the base package name for PyTorch installation
+            torch_spec = self.python_requirements[0]  # torch>=2.0.0
+            torchvision_spec = self.python_requirements[1]  # torchvision>=0.15.0
+            
+            # For PyTorch, we'll install with the version requirement but use the CPU version
             pytorch_cmd = [
-                'conda', 'run', '-n', self.conda_env_name,
-                'pip', 'install', 'torch', 'torchvision', 'torchaudio', 
+                conda_cmd, 'run', '-n', self.conda_env_name,
+                'pip', 'install', torch_spec, torchvision_spec, 'torchaudio',
                 '--index-url', 'https://download.pytorch.org/whl/cpu'  # CPU version
             ]
-            subprocess.run(pytorch_cmd, check=True, capture_output=True)
+            subprocess.run(pytorch_cmd, check=True, capture_output=True, shell=True)
+            self.logger.info(f"  [OK] {self.python_requirements[0]}")
+            self.logger.info(f"  [OK] {self.python_requirements[1]}")
             
-            # Install remaining packages
+            # Install remaining packages (including gymnasium which was skipped in torch installation)
             self.logger.info("Installing remaining Python packages...")
-            for package in self.python_requirements[3:]:  # Skip torch packages
+            # Install gymnasium separately as it's not part of the torch installation
+            gym_cmd = [
+                conda_cmd, 'run', '-n', self.conda_env_name,
+                'pip', 'install', self.python_requirements[2]  # gymnasium
+            ]
+            subprocess.run(gym_cmd, check=True, capture_output=True, shell=True)
+            self.logger.info(f"  [OK] {self.python_requirements[2]}")
+            
+            # Install the rest of the packages
+            for package in self.python_requirements[3:]:  # Skip torch, torchvision, gymnasium
                 cmd = [
-                    'conda', 'run', '-n', self.conda_env_name,
+                    conda_cmd, 'run', '-n', self.conda_env_name,
                     'pip', 'install', package
                 ]
-                subprocess.run(cmd, check=True, capture_output=True)
-                self.logger.info(f"  ✓ {package}")
+                subprocess.run(cmd, check=True, capture_output=True, shell=True)
+                self.logger.info(f"  [OK] {package}")
             
-            self.logger.info("✓ All Python packages installed")
+            self.logger.info("[OK] All Python packages installed")
             return True
             
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Python package installation failed: {e}")
+            return False
+        except FileNotFoundError:
+            self.logger.error("Conda executable not found. Please ensure conda is properly installed and in system PATH.")
             return False
     
     def _create_project_structure(self) -> bool:
@@ -282,7 +336,7 @@ class EnvironmentBuilder:
             # Create example config files
             self._create_example_configs()
             
-            self.logger.info("✓ Project structure created")
+            self.logger.info("[OK] Project structure created")
             return True
             
         except Exception as e:
@@ -392,19 +446,24 @@ class EnvironmentBuilder:
     def _verify_installation(self) -> bool:
         """Verify installation completeness."""
         try:
+            conda_cmd = shutil.which('conda')
+            if not conda_cmd:
+                self.logger.error("Conda command not found. Please ensure conda is installed and in PATH.")
+                return False
+            
             # Test conda environment
-            cmd = ['conda', 'run', '-n', self.conda_env_name, 'python', '-c', 
+            cmd = [conda_cmd, 'run', '-n', self.conda_env_name, 'python', '-c',
                    'import torch, numpy, gymnasium, matplotlib; print("All imports successful")']
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, shell=True)
             
             if "All imports successful" in result.stdout:
-                self.logger.info("✓ Package imports verified")
+                self.logger.info("[OK] Package imports verified")
             
             # Test PyTorch
-            cmd = ['conda', 'run', '-n', self.conda_env_name, 'python', '-c',
+            cmd = [conda_cmd, 'run', '-n', self.conda_env_name, 'python', '-c',
                    'import torch; print(f"PyTorch {torch.__version__}, CUDA available: {torch.cuda.is_available()}")']
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-            self.logger.info(f"✓ {result.stdout.strip()}")
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True, shell=True)
+            self.logger.info(f"[OK] {result.stdout.strip()}")
             
             # Check project structure
             required_dirs = ['src', 'scripts', 'config', 'data', 'models', 'results']
@@ -413,11 +472,14 @@ class EnvironmentBuilder:
                     self.logger.error(f"Missing directory: {directory}")
                     return False
             
-            self.logger.info("✓ Project structure verified")
+            self.logger.info("[OK] Project structure verified")
             return True
             
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Installation verification failed: {e}")
+            return False
+        except FileNotFoundError:
+            self.logger.error("Conda executable not found. Please ensure conda is properly installed and in system PATH.")
             return False
     
     def _print_next_steps(self):

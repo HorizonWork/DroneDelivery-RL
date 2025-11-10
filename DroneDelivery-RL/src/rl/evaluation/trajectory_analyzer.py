@@ -10,7 +10,6 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 from collections import defaultdict
 from scipy.interpolate import interp1d
-from scipy.integrate import cumtrapz
 import json
 
 @dataclass
