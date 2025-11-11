@@ -95,8 +95,13 @@ class EnvironmentBuilder:
         # Create formatters
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         
-        # Create console handler without encoding parameter for compatibility
+        # Create console handler with UTF-8 encoding for Windows compatibility
         console_handler = logging.StreamHandler(sys.stdout)
+        # On Windows, ensure UTF-8 encoding to handle Unicode characters like '✓'
+        if sys.platform.startswith('win'):
+            # For Windows, try to set the encoding to UTF-8
+            if hasattr(sys.stdout, 'reconfigure'):
+                sys.stdout.reconfigure(encoding='utf-8')
         console_handler.setFormatter(formatter)
         
         # Create file handler with encoding (this is supported in all relevant Python versions)
@@ -536,3 +541,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

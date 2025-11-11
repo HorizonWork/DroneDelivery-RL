@@ -55,7 +55,46 @@ class AirSimEnvironment(gym.Env):
         self.curriculum_manager = CurriculumManager(config)
         self.sensor_interface = SensorInterface(config)
         self.drone_controller = DroneController(config)
+
         self.world_builder = WorldBuilder(config)
+        self.logger.info("✓ WorldBuilder created")
+        self.logger.info("="*50)
+        self.logger.info("STARTING BRIDGE INITIALIZATION")
+        self.logger.info("="*50)
+
+        # Check AirSim before proceeding
+        import airsim
+        self.logger.info("Creating test AirSim client...")
+        try:
+            test_client = airsim.MultirotorClient()
+            self.logger.info("Confirming AirSim connection...")
+            test_client.confirmConnection()
+            self.logger.info("Pinging AirSim...")
+            test_client.ping()
+            self.logger.info("✓ AirSim health check PASSED")
+        except Exception as e:
+            self.logger.error(f"✗ AirSim health check FAILED: {e}")
+            raise
+
+        self.logger.info("Creating AirSimBridge...")
+        self.airsim_bridge = AirSimBridge(config.get('airsim', {}))
+        if not self.airsim_bridge.connect():
+            raise RuntimeError("AirSimBridge connection failed")
+        self.logger.info("[OK] AirSimBridge connected")
+        
+        self.logger.info("✓ AirSimBridge created")
+        self.logger.info("Creating SLAMBridge...")
+        self.slam_bridge = SLAMBridge(config.get('slam', {}))
+        self.logger.info("✓ SLAMBridge created")
+
+        self.logger.info("Creating SensorBridge...")
+        self.sensor_bridge = SensorBridge(config.get('sensor', {}))
+        self.logger.info("✓ SensorBridge created")
+
+        self.logger.info("="*50)
+        self.logger.info("ALL BRIDGES INITIALIZED SUCCESSFULLY")
+        self.logger.info("="*50)
+
         
         # Initialize bridges
         self.airsim_bridge = AirSimBridge(config.get('airsim', {}))

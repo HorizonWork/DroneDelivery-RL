@@ -60,7 +60,18 @@ class SystemLogger:
         
         # Console handler
         if self.config.get('console_logging', True):
+            # Create console handler with UTF-8 encoding for Windows compatibility
             console_handler = logging.StreamHandler(sys.stdout)
+            # On Windows, ensure UTF-8 encoding to handle Unicode characters like '✓'
+            if sys.platform.startswith('win'):
+                # For Windows, try to set the encoding to UTF-8
+                if hasattr(sys.stdout, 'reconfigure'):
+                    sys.stdout.reconfigure(encoding='utf-8')
+                elif hasattr(console_handler, 'setStream'):
+                    # Create a new stdout stream with UTF-8 encoding
+                    import io
+                    utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+                    console_handler = logging.StreamHandler(utf8_stdout)
             console_handler.setLevel(self.log_level)
             console_formatter = logging.Formatter(self.console_format)
             console_handler.setFormatter(console_formatter)
@@ -70,7 +81,7 @@ class SystemLogger:
         if self.config.get('file_logging', True):
             log_file = self.log_dir / 'system.log'
             file_handler = logging.handlers.RotatingFileHandler(
-                log_file, maxBytes=self.max_file_size, backupCount=self.backup_count
+                log_file, maxBytes=self.max_file_size, backupCount=self.backup_count, encoding='utf-8'
             )
             file_handler.setLevel(self.log_level)
             file_formatter = logging.Formatter(self.file_format)
@@ -81,7 +92,7 @@ class SystemLogger:
         if self.config.get('error_file_logging', True):
             error_file = self.log_dir / 'errors.log'
             error_handler = logging.handlers.RotatingFileHandler(
-                error_file, maxBytes=self.max_file_size, backupCount=self.backup_count
+                error_file, maxBytes=self.max_file_size, backupCount=self.backup_count, encoding='utf-8'
             )
             error_handler.setLevel(logging.ERROR)
             error_formatter = logging.Formatter(self.file_format)
@@ -112,7 +123,7 @@ class SystemLogger:
         if component_config.get('separate_file', False):
             log_file = self.log_dir / f'{component_name}.log'
             file_handler = logging.handlers.RotatingFileHandler(
-                log_file, maxBytes=self.max_file_size, backupCount=self.backup_count
+                log_file, maxBytes=self.max_file_size, backupCount=self.backup_count, encoding='utf-8'
             )
             file_handler.setLevel(component_level)
             file_formatter = logging.Formatter(self.file_format)
@@ -185,7 +196,7 @@ class StructuredLogger:
         }
         
         # Append to log file
-        with open(self.log_file, 'a') as f:
+        with open(self.log_file, 'a', encoding='utf-8') as f:
             f.write(json.dumps(log_entry, default=str) + '\n')
 
 def setup_logging(config: Dict[str, Any]) -> SystemLogger:
@@ -239,3 +250,4 @@ def log_exceptions(component: str):
                 raise
         return wrapper
     return decorator
+
