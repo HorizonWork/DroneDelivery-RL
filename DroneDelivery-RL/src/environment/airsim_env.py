@@ -89,6 +89,8 @@ class AirSimEnvironment(gym.Env):
         # Performance tracking
         self.step_times: List[float] = []
         self.max_step_time_history = 1000
+
+        self.world_built = False
         
         self.logger.info("AirSim Environment initialized")
         self.logger.info(f"Observation space: {self.observation_space.shape}")
@@ -144,10 +146,20 @@ class AirSimEnvironment(gym.Env):
         self.drone_controller.reset()
         
         # Build world if needed
-        self.world_builder.update_world_state()
-        
+        # self.world_builder.update_world_state()
+
+        if not self.world_built:
+            try:
+                self.logger.info("Building world (first episode only)...")
+                self.world_builder.update_world_state()
+                self.world_built = True
+                self.logger.info("✓ World built successfully")
+                time.sleep(2.0)  # Extra time for world to stabilize
+            except Exception as e:
+                self.logger.warning(f"Could not update world state: {e}")
+                self.logger.info("Continuing without world update...")    
         # Wait for systems to stabilize
-        time.sleep(1.0)
+        time.sleep(0.5)
         
         # Get initial observation
         observation = self._get_observation()
