@@ -1,8 +1,12 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -15,48 +19,53 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
 # Virtual environments
 venv/
-ENV/
-env/
+.env
 .venv/
+env/
+ENV/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Pytest
+.pytest_cache/
 
-# PyCharm
-.idea/
+# mypy
+.mypy_cache/
 
-# VS Code
+# IDEs and editors
 .vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
-# Data and models
-data/training/logs/
-data/evaluation/results/
-models/experiments/
-*.pt
-*.pth
-*.pkl
-
-# Temporary files
-*.tmp
-*.log
+# OS files
 .DS_Store
 Thumbs.db
 
-# AirSim
-/AirSim/
-airsim_settings.json.bak
+# Logs and training outputs
+logs/
+runs/
+flight_logs/
+*.log
 
-# ROS
-ros_ws/build/
-ros_ws/install/
-ros_ws/log/
+# TensorBoard / checkpoints / models
+checkpoints/
+models/
+*.ckpt
+*.pt
+*.pth
 
-# Docker
-.dockerignore
+# Jupyter
+.ipynb_checkpoints
+
+# Others
+*.sqlite3
+*.db
