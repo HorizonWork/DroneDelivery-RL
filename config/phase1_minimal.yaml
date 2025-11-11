@@ -1,0 +1,50 @@
+environment:
+  type: airsim
+  
+  observation_space:
+    dim: 40
+  
+  action_space:
+    dim: 4
+  
+  world:
+    num_floors: 1
+    floor_dimensions:
+      length: 20.0
+      width: 40.0
+      height: 3.0
+    
+    dynamic_obstacles: false
+    num_human_agents: 0
+    
+  curriculum:
+    enabled: false
+    
+  max_episode_steps: 1000
+  max_episode_time: 60.0
+  update_frequency: 20.0
+
+training:
+  algorithm: ppo
+  total_timesteps: 100
+  
+ppo:
+  learning_rate: 0.0003
+  n_steps: 256
+  batch_size: 32
+  n_epochs: 5
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  
+  network:
+    hidden_units: [64, 32]
+    activation: relu
+    
+  device: cuda
+
+
+

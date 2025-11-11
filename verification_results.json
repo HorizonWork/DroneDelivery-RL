@@ -1,0 +1,10 @@
+{
+  "Python Environment": true,
+  "Core Dependencies": false,
+  "ML/RL Packages": true,
+  "Computer Vision": true,
+  "Project Structure": true,
+  "Project Imports": true,
+  "Configuration Files": true,
+  "System Resources": true
+}

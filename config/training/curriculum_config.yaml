@@ -1,0 +1,58 @@
+# Curriculum Learning Configuration - 1→2→5 floor progression
+curriculum:
+  enabled: true
+  total_timesteps: 5000000           # 5M total as per Table 2
+  
+  phases:
+    # Phase 1: Single floor with static obstacles (1M timesteps)
+    - name: "single_floor_static"
+      timesteps: 1000000
+      floors_active: 1
+      dynamic_obstacles: false
+      difficulty: "easy"
+      success_threshold: 0.85         # Move to next phase at 85% success rate
+      min_episodes: 1000              # Minimum episodes before progression
+      
+    # Phase 2: Two floors with dynamic obstacles (2M timesteps)  
+    - name: "two_floors_dynamic"
+      timesteps: 2000000
+      floors_active: 2
+      dynamic_obstacles: true
+      difficulty: "medium"
+      success_threshold: 0.90         # Move to next phase at 90% success rate
+      min_episodes: 2000              # Minimum episodes before progression
+      
+    # Phase 3: Five floors with full complexity (2M timesteps)
+    - name: "five_floors_full"
+      timesteps: 2000000
+      floors_active: 5
+      dynamic_obstacles: true
+      difficulty: "hard"
+      success_threshold: 0.96         # Target performance from Table 3
+      min_episodes: 3000              # Minimum episodes for final training
+
+# Progression criteria
+progression:
+  evaluation_episodes: 100           # Episodes for progression evaluation
+  evaluation_frequency: 10000        # Evaluate progression every N timesteps
+  patience: 5                        # Wait N evaluations before progression
+  
+# Environment adaptation per phase
+phase_configs:
+  single_floor_static:
+    spawn_floors: [1]
+    target_floors: [1]
+    obstacle_density: 0.1
+    human_agents: 0
+    
+  two_floors_dynamic:
+    spawn_floors: [1, 2]
+    target_floors: [1, 2]
+    obstacle_density: 0.15
+    human_agents: 8
+    
+  five_floors_full:
+    spawn_floors: [1, 2, 3, 4, 5]
+    target_floors: [1, 2, 3, 4, 5]
+    obstacle_density: 0.2
+    human_agents: 12

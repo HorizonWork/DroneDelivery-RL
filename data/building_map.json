@@ -1,0 +1,68 @@
+{
+  "building_config": {
+    "floors": 5,
+    "dimensions": [
+      20.0,
+      40.0,
+      15.0
+    ],
+    "floor_height": 3.0
+  },
+  "obstacles": [],
+  "staircases": [
+    {
+      "position": [
+        3,
+        3
+      ],
+      "floors": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "position": [
+        17,
+        3
+      ],
+      "floors": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  ],
+  "elevators": [
+    {
+      "position": [
+        3,
+        37
+      ],
+      "floors": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "position": [
+        17,
+        37
+      ],
+      "floors": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+# Environment Configuration for Training
+environment:
+  # Building specification (exact match with report)
+  building:
+    floors: 5                        # Five-floor building
+    floor_dimensions:
+      length_m: 20.0                 # 20m × 40m × 3m per floor
+      width_m: 40.0
+      height_m: 3.0
+    cell_size_m: 0.5                 # Occupancy grid cell size
+    total_cells: 4000                # 20/0.5 × 40/0.5 × 5 = 4000
+    
+  # Drone spawn configuration
+  spawn:
+    name: "DroneSpawn"               # Spawn point name
+    location: [6000.0, -3000.0, 300.0]  # Exact coordinates from report
+    orientation: [0.0, 0.0, 0.0]     # Initial roll, pitch, yaw
+    
+  # Landing targets (Landing_101-506 systematic naming)
+  targets:
+    naming_scheme: "Landing_{floor}{number:02d}"
+    floors:
+      1: ["Landing_101", "Landing_102", "Landing_103", "Landing_104", "Landing_105", "Landing_106"]
+      2: ["Landing_201", "Landing_202", "Landing_203", "Landing_204", "Landing_205", "Landing_206"] 
+      3: ["Landing_301", "Landing_302", "Landing_303", "Landing_304", "Landing_305", "Landing_306"]
+      4: ["Landing_401", "Landing_402", "Landing_403", "Landing_404", "Landing_405", "Landing_406"]
+      5: ["Landing_501", "Landing_502", "Landing_503", "Landing_504", "Landing_505", "Landing_506"]
+    difficulty_progression: true     # Arrange by increasing difficulty
+    
+  # Drone specifications
+  drone:
+    mass_kg: 1.5                     # Drone mass
+    max_thrust_per_motor_N: 15.0     # Maximum thrust per motor  
+    max_translational_speed_mps: 5.0 # Maximum translational speed
+    num_rotors: 4                    # Quadrotor configuration
+    
+  # Episode settings
+  episode:
+    max_duration_s: 300.0            # Maximum episode duration
+    goal_tolerance_m: 0.5            # Goal reached tolerance
+    spawn_randomization: true       # Randomize spawn positions
+    target_randomization: true      # Randomize target selection
+    
+  # Dynamic obstacles
+  dynamic_obstacles:
+    enabled: true                    # Enable moving obstacles
+    human_agents: 12                 # Number of human agents
+    speed_range_mps: [0.8, 1.5]     # Human walking speed range
+    behavior: "corridor_walking"     # Human behavior model
+    
+# Training environment settings
+training:
+  # Parallel environments
+  num_envs: 1                       # Single environment for now
+  env_type: "single"                # single, vectorized, or distributed
+  
+  # Data collection
+  rollout_buffer_size: 2048         # Match PPO rollout_length
+  batch_processing: true            # Process in batches
+  
+  # Environment reset
+  reset_on_collision: true          # Reset episode on collision
+  reset_on_timeout: true            # Reset episode on timeout
+  reset_on_goal: true              # Reset episode on goal reached

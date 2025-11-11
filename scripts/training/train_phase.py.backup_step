@@ -1,0 +1,749 @@
+#!/usr/bin/env python3
+"""
+Main PPO Training Script
+Primary training script for energy-aware indoor drone navigation.
+Implements complete PPO training with curriculum learning and 5M timesteps.
+"""
+
+import os
+import sys
+import argparse
+import logging
+import time
+import json
+from pathlib import Path
+from typing import Dict, Any, Optional
+import torch
+import numpy as np
+import sys
+
+
+sys.setrecursionlimit(10000)
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
+from src.rl.agents.ppo_agent import PPOAgent
+from src.rl.training.curriculum_trainer import CurriculumTrainer
+from src.rl.initialization import initialize_rl_system
+from src.rl.utils.checkpoint_manager import CheckpointManager
+from src.rl.utils.normalization import ObservationNormalizer
+from src.rl.utils.tensorboard_logger import TensorBoardLogger
+from src.utils import setup_logging, load_config, DataRecorder
+
+import time
+
+logging.info("Connecting to AirSim...")
+time.sleep(3)  # ✅ ADD 3 SECOND DELAY
+
+# Test connection first
+try:
+    import airsim
+
+    test_client = airsim.MultirotorClient()
+    test_client.confirmConnection()
+    logging.info("✓ AirSim connection verified")
+except Exception as e:
+    logging.error(f"✗ AirSim connection failed: {e}")
+    logging.error("Make sure AirSim is running!")
+    sys.exit(1)
+
+# Now create environment
+logging.info("Creating environment...")
+
+class MainPPOTrainer:
+    """
+    Main PPO training system for DroneDelivery-RL.
+    Integrates all components for complete training pipeline.
+    """
+    
+    def __init__(self, config_path: str, experiment_name: str = None):
+        # Load configuration
+        self.config = load_config(config_path)
+        self.experiment_name = experiment_name or f"ppo_drone_{int(time.time())}"
+        
+        # Setup logging with experiment name
+        log_config = self.config.logging.copy()
+        log_config['experiment_name'] = self.experiment_name
+        self.logger_system = setup_logging(log_config)
+        self.logger = logging.getLogger(__name__)
+        
+        # Initialize RL system
+        self.rl_system = initialize_rl_system(self.config.rl)
+        self.agent = self.rl_system['agent']
+        self.curriculum_manager = self.rl_system.get("curriculum_manager", None)
+        
+        # Training utilities
+        checkpoint_config = (
+            self.config.rl.get("checkpoints", {}).copy()
+            if isinstance(self.config.rl, dict)
+            else self.config.rl.checkpoints.copy()
+        )
+        checkpoint_config['experiment_name'] = self.experiment_name
+        self.checkpoint_manager = CheckpointManager(checkpoint_config)
+        
+        # Observation normalization
+        self.obs_normalizer = ObservationNormalizer(
+            observation_dim=40,
+            config=self.config.rl.get('normalization', {})
+        )
+        
+        # TensorBoard logging
+        tensorboard_config = self.config.rl.get(
+            "logging", {"log_dir": "runs", "log_interval": 100}
+        ).copy()
+        tensorboard_config['experiment_name'] = self.experiment_name
+        self.tensorboard_logger = TensorBoardLogger(tensorboard_config)
+        
+        # Data recording
+        self.data_recorder = DataRecorder({
+            'experiment_name': self.experiment_name,
+            'save_trajectories': True,
+            'save_energy_profiles': True
+        })
+        
+        # Training configuration
+        training_config = self.config.rl.get(
+            "training",
+            {"max_timesteps": 5000000, "eval_interval": 10000, "save_interval": 1000},
+        )
+        self.total_timesteps = training_config.get('total_timesteps', 5_000_000)
+        self.eval_frequency = training_config.get('eval_frequency', 50_000)
+        self.checkpoint_frequency = training_config.get('checkpoint_frequency', 100_000)
+        self.phase_eval_frequency = training_config.get('phase_eval_frequency', 10_000)
+        
+        # Training state
+        self.global_timestep = 0
+        self.episode_count = 0
+        self.training_start_time = None
+        self.current_environment = None
+        
+        # Performance tracking
+        self.episode_rewards = []
+        self.episode_energies = []
+        self.success_rates = []
+        self.phase_performance = {}
+        
+        self.logger.info(f"Main PPO Trainer initialized: {self.experiment_name}")
+        self.logger.info(f"Target timesteps: {self.total_timesteps:,}")
+        if self.curriculum_manager is not None:
+            self.logger.info(f"Curriculum phases: {len(self.curriculum_manager.phases)}")
+        else:
+            self.logger.info("Curriculum manager not initialized - using standard training")
+    
+    def train(self, resume_checkpoint: str = None) -> Dict[str, Any]:
+        """
+        Execute main PPO training.
+        
+        Args:
+            resume_checkpoint: Checkpoint file to resume from
+            
+        Returns:
+            Complete training results
+        """
+        self.logger.info("STARTING MAIN PPO TRAINING")
+        self.training_start_time = time.time()
+        
+        # Resume from checkpoint if provided
+        if resume_checkpoint:
+            self._load_checkpoint_and_resume(resume_checkpoint)
+        
+        # Initialize environment for first/current phase
+        self._setup_current_environment()
+        
+        # Main training loop
+        while self.global_timestep < self.total_timesteps:
+            try:
+                # Check curriculum phase progression  
+                if self._check_phase_advancement():
+                    self._advance_curriculum_phase()
+                
+                # Run training episode
+                episode_results = self._execute_training_episode()
+                
+                # Update performance tracking
+                self._update_performance_metrics(episode_results)
+                
+                # Periodic evaluations
+                if self.global_timestep % self.phase_eval_frequency == 0:
+                    self._run_phase_evaluation()
+                
+                # Comprehensive evaluations
+                if self.global_timestep % self.eval_frequency == 0:
+                    self._run_comprehensive_evaluation()
+                
+                # Checkpointing
+                if self.global_timestep % self.checkpoint_frequency == 0:
+                    self._create_checkpoint()
+                
+                # Progress reporting
+                if self.episode_count % 50 == 0:
+                    self._report_training_progress()
+                
+            except KeyboardInterrupt:
+                self.logger.info("Training interrupted by user")
+                self._handle_training_interruption()
+                break
+                
+            except Exception as e:
+                self.logger.error(f"Training error: {e}", exc_info=True)
+                self._handle_training_error(e)
+        
+        # Complete training
+        final_results = self._complete_training()
+        
+        # Cleanup
+        self.tensorboard_logger.close()
+        
+        return final_results
+    
+    def _setup_current_environment(self):
+        """Setup environment for current curriculum phase."""
+        if self.curriculum_manager is not None:
+            current_phase = self.curriculum_manager.get_current_phase()
+        else:
+            current_phase = {'name': 'standard', 'difficulty': 1}
+        
+        # Create phase-specific environment configuration
+        env_config = self.config.environment.copy()
+        phase_config = current_phase.get('config', {})
+        
+        # Apply phase settings
+        if 'floors' in phase_config:
+            env_config['building']['floors'] = phase_config['floors']
+        
+        if 'obstacle_density' in phase_config:
+            env_config['obstacles']['density'] = phase_config['obstacle_density']
+        
+        if 'dynamic_obstacles' in phase_config:
+            env_config['obstacles']['dynamic_obstacles'] = phase_config['dynamic_obstacles']
+            env_config['obstacles']['dynamic_count'] = phase_config.get('dynamic_count', 3)
+        
+        # Create environment
+        self.current_environment = DroneEnvironment(env_config)
+        
+        phase_name = current_phase.get('name', 'Unknown')
+        self.logger.info(f"Environment setup for phase: {phase_name}")
+        self.logger.info(f"Floors: {env_config['building']['floors']}")
+        self.logger.info(f"Obstacle density: {env_config['obstacles']['density']}")
+    
+    def _execute_training_episode(self) -> Dict[str, Any]:
+        """Execute single training episode with full data collection."""
+        episode_start = time.time()
+        
+        # Reset environment  
+        observation, _ = self.current_environment.reset()
+        observation = self.obs_normalizer.normalize(observation)
+        
+        # Episode data collection
+        episode_data = {
+            'observations': [],
+            'actions': [],
+            'rewards': [],
+            'values': [],
+            'log_probs': [],
+            'dones': [],
+            'energy_consumption': [],
+            'positions': []
+        }
+        
+        episode_reward = 0.0
+        episode_energy = 0.0
+        episode_steps = 0
+        done = False
+        
+        # Episode rollout
+        while not done and episode_steps < 1000:  # Max episode length
+            # Get action from policy
+            action, log_prob, value = self.agent.select_action(observation)
+            
+            # Execute in environment
+            next_observation, reward, done, info = self.current_environment.step(action)
+            next_observation = self.obs_normalizer.normalize(next_observation)
+            
+            # Collect data
+            episode_data['observations'].append(observation)
+            episode_data['actions'].append(action)
+            episode_data['rewards'].append(reward)
+            episode_data['values'].append(value)
+            episode_data['log_probs'].append(log_prob)
+            episode_data['dones'].append(done)
+            episode_data['energy_consumption'].append(info.get('energy_consumption', 0.0))
+            episode_data['positions'].append(info.get('position', [0, 0, 0]))
+            
+            # Update episode metrics
+            episode_reward += reward
+            episode_energy += info.get('energy_consumption', 0.0)
+            episode_steps += 1
+            self.global_timestep += 1
+            
+            # Update observation normalizer
+            self.obs_normalizer.update_statistics(next_observation)
+            
+            observation = next_observation
+        
+        # Policy update after episode
+        final_value = self.agent.get_value(observation) if not done else 0.0
+        training_metrics = self.agent.update_policy(episode_data, final_value)
+        
+        # Record episode data
+        self.data_recorder.record_episode({
+            'episode': self.episode_count,
+            'timestep': self.global_timestep,
+            'reward': episode_reward,
+            'energy': episode_energy,
+            'success': info.get('success', False),
+            'trajectory': episode_data['positions'],
+            'phase': self.curriculum_manager.get_current_phase()['name']
+        })
+        
+        self.episode_count += 1
+        episode_time = time.time() - episode_start
+        
+        return {
+            'reward': episode_reward,
+            'energy': episode_energy,
+            'steps': episode_steps,
+            'success': info.get('success', False),
+            'collision': info.get('collision', False),
+            'training_metrics': training_metrics,
+            'episode_time': episode_time
+        }
+    
+    def _check_phase_advancement(self) -> bool:
+        """Check if curriculum should advance to next phase."""
+        # ADD CHECK!
+        if self.curriculum_manager is None:
+            return False
+
+        # Original code
+        recent_performance = self._calculate_recent_performance()
+        return self.curriculum_manager.should_advance_phase(
+            timesteps=self.total_timesteps,
+            success_rate=recent_performance["success_rate"],
+            avg_reward=recent_performance["avg_reward"],
+        )
+    
+    def _advance_curriculum_phase(self):
+        """Advance to next curriculum phase."""
+        old_phase = self.curriculum_manager.get_current_phase()
+        
+        # Log phase completion
+        completion_metrics = self._calculate_recent_performance()
+        self.phase_performance[old_phase['name']] = {
+            'completion_timestep': self.global_timestep,
+            'completion_episode': self.episode_count,
+            'final_success_rate': completion_metrics.get('success_rate', 0),
+            'final_energy': completion_metrics.get('mean_energy', 0)
+        }
+        
+        # Advance phase
+        advanced = self.curriculum_manager.advance_phase()
+        
+        if advanced:
+            new_phase = self.curriculum_manager.get_current_phase()
+            self.logger.info(f"🎓 PHASE ADVANCEMENT: {old_phase['name']} → {new_phase['name']}")
+            
+            # Setup new environment
+            self._setup_current_environment()
+            
+            # Log phase transition
+            self.tensorboard_logger.log_phase_transition(
+                old_phase['name'], 
+                new_phase['name'],
+                self.phase_performance[old_phase['name']], 
+                self.global_timestep
+            )
+        
+        return advanced
+    
+    def _calculate_recent_performance(self) -> Dict[str, float]:
+        """Calculate recent performance metrics."""
+        if len(self.episode_rewards) < 10:
+            return {'success_rate': 0.0, 'mean_energy': 0.0}
+        
+        recent_count = min(50, len(self.episode_rewards))
+        recent_rewards = self.episode_rewards[-recent_count:]
+        recent_energies = self.episode_energies[-recent_count:]
+        
+        # Success rate (reward > 400 indicates success)
+        successes = sum(1 for r in recent_rewards if r > 400)
+        success_rate = successes / len(recent_rewards) * 100
+        
+        # Mean energy for successful episodes
+        successful_energies = [e for r, e in zip(recent_rewards, recent_energies) if r > 400]
+        mean_energy = np.mean(successful_energies) if successful_energies else 0.0
+        
+        return {
+            'success_rate': success_rate,
+            'mean_energy': float(mean_energy)
+        }
+    
+    def _update_performance_metrics(self, episode_results: Dict[str, Any]):
+        """Update performance tracking."""
+        self.episode_rewards.append(episode_results['reward'])
+        self.episode_energies.append(episode_results['energy'])
+        
+        # Calculate rolling success rate
+        if len(self.episode_rewards) >= 20:
+            recent_successes = sum(1 for r in self.episode_rewards[-20:] if r > 400)
+            success_rate = recent_successes / 20 * 100
+            self.success_rates.append(success_rate)
+        
+        # Log to TensorBoard
+        metrics = {
+            'Episode/Reward': episode_results['reward'],
+            'Episode/Energy': episode_results['energy'],
+            'Episode/Steps': episode_results['steps'],
+            'Episode/Success': 1.0 if episode_results['success'] else 0.0
+        }
+        
+        if self.success_rates:
+            metrics['Performance/Success_Rate'] = self.success_rates[-1]
+        
+        if 'training_metrics' in episode_results:
+            train_metrics = episode_results['training_metrics']
+            metrics.update({
+                'Training/Policy_Loss': train_metrics.get('policy_loss', 0),
+                'Training/Value_Loss': train_metrics.get('value_loss', 0),
+                'Training/Entropy': train_metrics.get('entropy', 0),
+                'Training/KL_Divergence': train_metrics.get('kl_divergence', 0)
+            })
+        
+        self.tensorboard_logger.log_scalars(metrics, self.global_timestep)
+    
+    def _run_phase_evaluation(self):
+        """Run quick phase evaluation."""
+        if not self.current_environment:
+            return
+        
+        eval_results = []
+        for _ in range(5):  # Quick 5-episode eval
+            observation, _ = self.current_environment.reset()
+            observation = self.obs_normalizer.normalize(observation)
+            
+            episode_reward = 0.0
+            episode_energy = 0.0
+            done = False
+            steps = 0
+            
+            while not done and steps < 500:
+                action, _, _ = self.agent.select_action(observation, deterministic=True)
+                observation, reward, done, info = self.current_environment.step(action)
+                observation = self.obs_normalizer.normalize(observation)
+                
+                episode_reward += reward
+                episode_energy += info.get('energy_consumption', 0.0)
+                steps += 1
+            
+            eval_results.append({
+                'reward': episode_reward,
+                'energy': episode_energy,
+                'success': info.get('success', False)
+            })
+        
+        # Log phase evaluation
+        successes = [r for r in eval_results if r['success']]
+        success_rate = len(successes) / len(eval_results) * 100
+        mean_energy = np.mean([r['energy'] for r in successes]) if successes else 0
+        
+        self.tensorboard_logger.log_scalars({
+            'Phase_Eval/Success_Rate': success_rate,
+            'Phase_Eval/Mean_Energy': mean_energy
+        }, self.global_timestep)
+    
+    def _run_comprehensive_evaluation(self):
+        """Run comprehensive evaluation with 20 episodes."""
+        self.logger.info(f"Running comprehensive evaluation at timestep {self.global_timestep:,}")
+        
+        eval_results = []
+        for episode in range(20):
+            observation, _ = self.current_environment.reset()
+            observation = self.obs_normalizer.normalize(observation)
+            
+            episode_reward = 0.0
+            episode_energy = 0.0
+            trajectory = []
+            done = False
+            steps = 0
+            
+            while not done and steps < 1000:
+                action, _, _ = self.agent.select_action(observation, deterministic=True)
+                observation, reward, done, info = self.current_environment.step(action)
+                observation = self.obs_normalizer.normalize(observation)
+                
+                episode_reward += reward
+                episode_energy += info.get('energy_consumption', 0.0)
+                trajectory.append(info.get('position', [0, 0, 0]))
+                steps += 1
+            
+            eval_results.append({
+                'reward': episode_reward,
+                'energy': episode_energy,
+                'success': info.get('success', False),
+                'collision': info.get('collision', False),
+                'trajectory': trajectory,
+                'steps': steps
+            })
+        
+        # Calculate comprehensive metrics
+        successes = [r for r in eval_results if r['success']]
+        success_rate = len(successes) / len(eval_results) * 100
+        mean_energy = np.mean([r['energy'] for r in successes]) if successes else 0
+        collision_rate = np.mean([r['collision'] for r in eval_results]) * 100
+        mean_steps = np.mean([r['steps'] for r in successes]) if successes else 0
+        
+        # Log comprehensive evaluation
+        eval_metrics = {
+            'Eval/Success_Rate': success_rate,
+            'Eval/Mean_Energy': mean_energy,
+            'Eval/Collision_Rate': collision_rate,
+            'Eval/Mean_Steps': mean_steps,
+            'Eval/Episodes': len(eval_results)
+        }
+        
+        self.tensorboard_logger.log_scalars(eval_metrics, self.global_timestep)
+        
+        self.logger.info(f"Evaluation: {success_rate:.1f}% success, {mean_energy:.0f}J energy, "
+                        f"{collision_rate:.1f}% collisions")
+        
+        return {
+            'success_rate': success_rate,
+            'mean_energy': mean_energy,
+            'collision_rate': collision_rate
+        }
+    
+    def _create_checkpoint(self):
+        """Create training checkpoint."""
+        recent_performance = self._calculate_recent_performance()
+        
+        checkpoint_path = self.checkpoint_manager.save_checkpoint(
+            self.agent,
+            self.global_timestep,
+            self.episode_count,
+            recent_performance['success_rate'],
+            recent_performance['mean_energy'],
+            additional_data={
+                'curriculum_phase': self.curriculum_manager.current_phase_index,
+                'phase_name': self.curriculum_manager.get_current_phase()['name'],
+                'normalization_stats': {
+                    'mean': self.obs_normalizer.mean.tolist(),
+                    'variance': self.obs_normalizer.variance.tolist(),
+                    'count': self.obs_normalizer.count
+                },
+                'phase_performance': self.phase_performance,
+                'experiment_name': self.experiment_name
+            }
+        )
+        
+        self.logger.info(f"💾 Checkpoint saved: {Path(checkpoint_path).name}")
+    
+    def _report_training_progress(self):
+        """Report current training progress."""
+        elapsed_time = time.time() - self.training_start_time
+        progress = self.global_timestep / self.total_timesteps * 100
+        
+        # Estimate remaining time
+        if progress > 0:
+            total_estimated_time = elapsed_time / (progress / 100)
+            remaining_time = total_estimated_time - elapsed_time
+        else:
+            remaining_time = 0
+        
+        recent_performance = self._calculate_recent_performance()
+        if self.curriculum_manager is not None:
+            current_phase = self.curriculum_manager.get_current_phase()
+        else:
+            current_phase = {'name': 'standard', 'difficulty': 1}
+        
+        self.logger.info(f"📊 TRAINING PROGRESS")
+        self.logger.info(f"Progress: {progress:.1f}% ({self.global_timestep:,}/{self.total_timesteps:,})")
+        self.logger.info(f"Episode: {self.episode_count:,}")
+        self.logger.info(f"Time: {elapsed_time/3600:.1f}h elapsed, {remaining_time/3600:.1f}h remaining")
+        self.logger.info(f"Phase: {current_phase['name']}")
+        self.logger.info(f"Success: {recent_performance['success_rate']:.1f}%")
+        self.logger.info(f"Energy: {recent_performance['mean_energy']:.0f}J")
+    
+    def _complete_training(self) -> Dict[str, Any]:
+        """Complete training and return final results."""
+        total_time = time.time() - self.training_start_time
+        
+        # Final comprehensive evaluation
+        final_evaluation = self._run_comprehensive_evaluation()
+        
+        # Save final model
+        final_checkpoint = self.checkpoint_manager.save_checkpoint(
+            self.agent,
+            self.global_timestep,
+            self.episode_count,
+            final_evaluation['success_rate'],
+            final_evaluation['mean_energy'],
+            additional_data={
+                'training_completed': True,
+                'final_model': True,
+                'experiment_name': self.experiment_name
+            },
+            checkpoint_name='ppo_final'
+        )
+        
+        # Save training history
+        training_history = {
+            'episode_rewards': self.episode_rewards,
+            'episode_energies': self.episode_energies,
+            'success_rates': self.success_rates,
+            'phase_performance': self.phase_performance
+        }
+        
+        history_path = Path(final_checkpoint).parent / f'{self.experiment_name}_history.json'
+        with open(history_path, 'w') as f:
+            json.dump(training_history, f, indent=2, default=str)
+        
+        # Complete training results
+        final_results = {
+            'training_completed': True,
+            'experiment_name': self.experiment_name,
+            'total_timesteps': self.global_timestep,
+            'total_episodes': self.episode_count,
+            'total_training_time_hours': total_time / 3600,
+            'phases_completed': self.curriculum_manager.current_phase_index + 1,
+            'final_checkpoint': final_checkpoint,
+            'final_evaluation': final_evaluation,
+            'phase_performance_summary': self.phase_performance,
+            'target_achievements': {
+                'success_rate_96_percent': final_evaluation['success_rate'] >= 96.0,
+                'energy_efficiency': final_evaluation['mean_energy'] <= 700.0,
+                'collision_safety': final_evaluation['collision_rate'] <= 2.0
+            }
+        }
+        
+        self.logger.info("🎉 MAIN PPO TRAINING COMPLETED!")
+        self.logger.info(f"Total time: {total_time/3600:.1f} hours")
+        self.logger.info(f"Final success rate: {final_evaluation['success_rate']:.1f}%")
+        self.logger.info(f"Final energy: {final_evaluation['mean_energy']:.0f}J")
+        self.logger.info(f"Model ready for evaluation!")
+        
+        return final_results
+    
+    def _load_checkpoint_and_resume(self, checkpoint_path: str):
+        """Load checkpoint and resume training."""
+        try:
+            checkpoint_data = torch.load(checkpoint_path, map_location=self.agent.device)
+            
+            # Load agent state
+            self.agent.policy.load_state_dict(checkpoint_data['agent_state_dict'])
+            if 'optimizer_state_dict' in checkpoint_data:
+                self.agent.optimizer.load_state_dict(checkpoint_data['optimizer_state_dict'])
+            
+            # Load training state
+            training_info = checkpoint_data['training_info']
+            self.global_timestep = training_info.get('timestep', 0)
+            self.episode_count = training_info.get('episode', 0)
+            
+            # Load additional data
+            additional_data = checkpoint_data.get('additional_data', {})
+            if 'curriculum_phase' in additional_data:
+                self.curriculum_manager.current_phase_index = additional_data['curriculum_phase']
+            
+            if 'normalization_stats' in additional_data:
+                norm_stats = additional_data['normalization_stats']
+                self.obs_normalizer.mean = torch.tensor(norm_stats['mean'])
+                self.obs_normalizer.variance = torch.tensor(norm_stats['variance'])
+                self.obs_normalizer.count = norm_stats['count']
+            
+            self.logger.info(f"✅ Resumed from checkpoint at timestep {self.global_timestep:,}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load checkpoint: {e}")
+            raise
+    
+    def _handle_training_interruption(self):
+        """Handle training interruption gracefully."""
+        self.logger.info("Saving emergency checkpoint...")
+        
+        try:
+            recent_performance = self._calculate_recent_performance()
+            emergency_checkpoint = self.checkpoint_manager.save_checkpoint(
+                self.agent,
+                self.global_timestep,
+                self.episode_count,
+                recent_performance['success_rate'],
+                recent_performance['mean_energy'],
+                additional_data={'emergency_save': True},
+                checkpoint_name='ppo_emergency'
+            )
+            
+            self.logger.info(f"Emergency checkpoint saved: {emergency_checkpoint}")
+            
+        except Exception as e:
+            self.logger.error(f"Emergency save failed: {e}")
+    
+    def _handle_training_error(self, error: Exception):
+        """Handle training errors."""
+        self.logger.error(f"Training error occurred: {error}")
+        
+        # Try to save current state
+        try:
+            self._create_checkpoint()
+            self.logger.info("Current state saved before error handling")
+        except:
+            self.logger.warning("Could not save checkpoint during error handling")
+        
+        # For now, re-raise the error
+        # In production, might implement error recovery
+        raise error
+
+def main():
+    parser = argparse.ArgumentParser(description='Main PPO training for drone navigation')
+    parser.add_argument('--config', type=str, default='config/main_config.yaml',
+                       help='Configuration file path')
+    parser.add_argument('--name', type=str, default=None,
+                       help='Experiment name')
+    parser.add_argument('--resume', type=str, default=None,
+                       help='Resume from checkpoint')
+    parser.add_argument('--timesteps', type=int, default=None,
+                       help='Override total timesteps')
+    
+    args = parser.parse_args()
+    
+    # Generate experiment name if not provided
+    if not args.name:
+        args.name = f"ppo_drone_{int(time.time())}"
+    
+    # Create trainer
+    trainer = MainPPOTrainer(args.config, args.name)
+    
+    # Override timesteps if specified
+    if args.timesteps:
+        trainer.total_timesteps = args.timesteps
+    
+    # Run training
+    try:
+        results = trainer.train(resume_checkpoint=args.resume)
+        
+        # Print final summary
+        print("\n" + "="*70)
+        print("🏆 PPO TRAINING COMPLETED SUCCESSFULLY!")
+        print("="*70)
+        print(f"Experiment: {results['experiment_name']}")
+        print(f"Total timesteps: {results['total_timesteps']:,}")
+        print(f"Total episodes: {results['total_episodes']:,}")
+        print(f"Training time: {results['total_training_time_hours']:.1f} hours")
+        print(f"Phases completed: {results['phases_completed']}/3")
+        print(f"Final success rate: {results['final_evaluation']['success_rate']:.1f}%")
+        print(f"Final energy consumption: {results['final_evaluation']['mean_energy']:.0f}J")
+        print(f"Target achievements:")
+        for target, achieved in results['target_achievements'].items():
+            status = "✅" if achieved else "❌"
+            print(f"  {status} {target}")
+        print(f"Final model: {Path(results['final_checkpoint']).name}")
+        print("="*70)
+        print("🎯 Ready for comprehensive evaluation!")
+        
+    except KeyboardInterrupt:
+        print("\n🛑 Training interrupted by user")
+    except Exception as e:
+        print(f"\n❌ Training failed: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

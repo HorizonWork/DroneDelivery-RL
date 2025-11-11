@@ -1,0 +1,42 @@
+# Reward Function Weights - Exact match with Equation (2)
+# R(s_t, a_t) = 500·1{goal} - 5·d_t - 0.1·Δt - 0.01·Σu_i² - 10·j_t - 1000·c_t
+
+reward_weights:
+  # Goal reaching bonus: 500·1{goal}
+  goal_bonus: 500.0                  # Large bonus for reaching target
+  
+  # Distance penalty: -5·d_t  
+  distance_penalty: 5.0              # Penalize distance to goal
+  
+  # Time penalty: -0.1·Δt
+  time_penalty: 0.1                  # Penalize elapsed time per step
+  
+  # Energy penalty: -0.01·Σu_i²
+  thrust_penalty: 0.01               # Penalize motor thrust squared
+  
+  # Jerk penalty: -10·j_t
+  jerk_penalty: 10.0                 # Penalize velocity command derivatives
+  
+  # Collision penalty: -1000·c_t
+  collision_penalty: 1000.0          # Severe penalty for collisions
+
+# Reward calculation settings
+reward_config:
+  control_step_duration: 0.05        # Δt = 0.05s as per report
+  goal_tolerance: 0.5                # Goal reached within 0.5m
+  normalize_rewards: false           # Keep original scale from Equation (2)
+  
+  # Energy calculation
+  energy_integration: "thrust_squared"  # ∫thrust²dt integration
+  num_rotors: 4                      # Quadrotor configuration
+  
+  # Jerk calculation  
+  jerk_calculation: "velocity_derivative"  # ||∂v_command/∂t||²
+  jerk_smoothing: false              # No smoothing for exact match
+  
+# Reward shaping (optional enhancements)
+reward_shaping:
+  enabled: false                     # Disable for exact Equation (2) match
+  progress_bonus: 0.0               # Additional progress reward
+  efficiency_bonus: 0.0             # Efficiency bonus
+  safety_bonus: 0.0                 # Safety margin bonus

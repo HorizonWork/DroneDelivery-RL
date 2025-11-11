@@ -1,0 +1,25 @@
+environment:
+  building:
+    floor_height: 3.0
+    floors: 5
+    x_max: 20.0
+    y_max: 40.0
+  obstacles:
+    density: 0.15
+    dynamic_obstacles: true
+evaluation:
+  num_episodes: 100
+  timeout: 300.0
+logging:
+  console_logging: true
+  file_logging: true
+  level: INFO
+rl:
+  ppo:
+    batch_size: 256
+    epochs: 10
+    learning_rate: 0.0003
+    rollout_length: 2048
+  training:
+    eval_frequency: 50000
+    total_timesteps: 5000000

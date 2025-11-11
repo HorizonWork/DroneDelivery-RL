@@ -1,0 +1,12 @@
+rl:
+  ppo:
+    learning_rate: 0.0003
+    rollout_length: 2048
+    batch_size: 64
+    epochs_per_update: 10        
+    discount_factor: 0.99          
+    gae_lambda: 0.95               
+    clip_range: 0.2                
+    value_loss_coefficient: 0.5    
+    entropy_coefficient: 0.01      
+    max_grad_norm: 0.5

@@ -1,0 +1,21 @@
+{
+  "stereo_camera": {
+    "left": "front_left",
+    "right": "front_right",
+    "frame_rate_hz": 30.0,
+    "resolution": [640, 480],
+    "fov_deg": 90.0,
+    "baseline_m": 0.10
+ },
+  "imu": {
+    "name": "Imu",
+    "update_hz": 200.0,
+    "noise": { "gyro_std": 0.005, "accel_std": 0.05 }
+  },
+  "depth_camera": {
+    "name": "depth",
+    "frame_rate_hz": 20.0,
+    "range_m": 100.0
+  },
+  "occupancy_histogram": { "sectors": 24, "update_hz": 20.0 }
+}

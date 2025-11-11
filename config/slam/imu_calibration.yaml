@@ -1,0 +1,12 @@
+rate_hz: 200
+accelerometer:
+  noise_density: 0.02         # m/s^2/√Hz
+  random_walk: 0.0002
+  bias_init: [0.0, 0.0, 0.0]
+gyroscope:
+  noise_density: 0.0015       # rad/s/√Hz
+  random_walk: 0.0001
+  bias_init: [0.0, 0.0, 0.0]
+gravity_mps2: 9.81
+alignment:
+  imu_to_body_rpy_deg: [0.0, 0.0, 0.0]

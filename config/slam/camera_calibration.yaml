@@ -1,0 +1,20 @@
+model: pinhole
+left:
+  width: 640
+  height: 480
+  fx: 460.0
+  fy: 460.0
+  cx: 320.0
+  cy: 240.0
+  distortion: [0.0, 0.0, 0.0, 0.0]
+right:
+  width: 640
+  height: 480
+  fx: 460.0
+  fy: 460.0
+  cx: 320.0
+  cy: 240.0
+  distortion: [0.0, 0.0, 0.0, 0.0]
+stereo:
+  baseline_m: 0.10
+  rectify: true

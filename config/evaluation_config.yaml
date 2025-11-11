@@ -1,0 +1,11 @@
+evaluation:
+  deterministic_policy: true
+  episode_timeout: 300.0
+  num_episodes: 100
+  record_trajectories: true
+visualization:
+  dpi: 100
+  figure_size:
+  - 12
+  - 8
+  save_plots: true
