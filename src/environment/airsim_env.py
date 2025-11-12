@@ -64,12 +64,13 @@ class AirSimEnvironment(gym.Env):
         self.drone_controller = DroneController(config)
         self.world_builder = WorldBuilder(config)
         self.logger.info("✓ WorldBuilder created")
-        self.logger.info("="*50)
+        self.logger.info("=" * 50)
         self.logger.info("STARTING BRIDGE INITIALIZATION")
-        self.logger.info("="*50)
+        self.logger.info("=" * 50)
 
         # Check AirSim before proceeding
         import airsim
+
         self.logger.info("Creating test AirSim client...")
         try:
             test_client = airsim.MultirotorClient()
@@ -86,42 +87,43 @@ class AirSimEnvironment(gym.Env):
         self.logger.info("✓ AirSimBridge created")
 
         self.logger.info("Creating SLAMBridge...")
-        self.slam_bridge = SLAMBridge(config.get('slam', {}))
+        self.slam_bridge = SLAMBridge(config.get("slam", {}))
         self.logger.info("✓ SLAMBridge created")
 
         self.logger.info("Creating SensorBridge...")
-        self.sensor_bridge = SensorBridge(config.get('sensor', {}))
+        self.sensor_bridge = SensorBridge(config.get("sensor", {}))
         self.logger.info("✓ SensorBridge created")
 
-        self.logger.info("="*50)
+        self.logger.info("=" * 50)
         self.logger.info("ALL BRIDGES INITIALIZED SUCCESSFULLY")
-        self.logger.info("="*50)
+        self.logger.info("=" * 50)
 
         # ✅ ADD PRINT TO STDOUT (bypasses logger):
         print("=" * 80)
         print("DEBUG: AFTER BRIDGES - STARTING GYM SPACES")
         print("=" * 80)
         import sys
+
         sys.stdout.flush()  # Force flush
 
         try:
             print("DEBUG: Creating observation space...")
             sys.stdout.flush()
-            
+
             self.observation_space = gym.spaces.Box(
                 low=-np.inf, high=np.inf, shape=(40,), dtype=np.float32
             )
-            
+
             print(f"DEBUG: Observation space created: {self.observation_space.shape}")
             sys.stdout.flush()
-            
+
         except Exception as e:
             print(f"DEBUG: FAILED TO CREATE OBSERVATION SPACE: {e}")
             import traceback
+
             traceback.print_exc()
             sys.stdout.flush()
             raise
-
 
         # Initialize bridges
         self.airsim_bridge = AirSimBridge(config.get("airsim", {}))
@@ -659,9 +661,9 @@ class AirSimEnvironment(gym.Env):
 
             stats = {
                 "total_episodes": self.episode_info.episode_id,
-                "average_step_time": np.mean(self.step_times)
-                if self.step_times
-                else 0.0,
+                "average_step_time": (
+                    np.mean(self.step_times) if self.step_times else 0.0
+                ),
                 "max_step_time": np.max(self.step_times) if self.step_times else 0.0,
                 "action_statistics": self.action_handler.get_action_statistics(),
                 "target_statistics": self.target_manager.get_target_statistics(),
@@ -687,9 +689,9 @@ class AirSimEnvironment(gym.Env):
             "target_system": self.target_manager.get_target_statistics(),
             "curriculum": self.curriculum_manager.get_progress_info(),
             "performance": {
-                "average_step_time": np.mean(self.step_times)
-                if self.step_times
-                else 0.0,
+                "average_step_time": (
+                    np.mean(self.step_times) if self.step_times else 0.0
+                ),
                 "max_step_time": np.max(self.step_times) if self.step_times else 0.0,
                 "total_episodes": self.episode_info.episode_id,
             },

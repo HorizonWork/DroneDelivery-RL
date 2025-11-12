@@ -161,7 +161,7 @@ class ActorCriticNetwork(nn.Module):
 
     @staticmethod
     def _normalize_config(
-        config: Union[Dict[str, Any], NetworkConfig]
+        config: Union[Dict[str, Any], NetworkConfig],
     ) -> NetworkConfig:
         """Convert dict/legacy configs into a NetworkConfig instance."""
         if isinstance(config, NetworkConfig):
@@ -170,9 +170,7 @@ class ActorCriticNetwork(nn.Module):
         cfg = dict(config or {})
         observation_dim = cfg.get("observation_dim", cfg.get("obs_dim", 40))
         action_dim = cfg.get("action_dim", cfg.get("act_dim", 4))
-        hidden_dims = cfg.get(
-            "hidden_dims", cfg.get("hidden_sizes", [256, 128, 64])
-        )
+        hidden_dims = cfg.get("hidden_dims", cfg.get("hidden_sizes", [256, 128, 64]))
         hidden_dims = [int(h) for h in hidden_dims]
         activation = cfg.get("activation", "tanh")
         init_log_std = cfg.get("init_log_std", cfg.get("log_std", -0.5))
@@ -186,7 +184,6 @@ class ActorCriticNetwork(nn.Module):
             init_log_std=float(init_log_std),
             init_method=init_method,
         )
-
 
     def _initialize_weights(self):
         """Initialize network weights using the requested scheme."""
@@ -208,11 +205,8 @@ class ActorCriticNetwork(nn.Module):
                     nn.init.constant_(module.bias, 0.0)
 
         # Special initialization for policy head (small values for exploration)
-        nn.init.orthogonal_(
-            self.policy_mean.weight, gain=cast(float, 0.01)
-        )
+        nn.init.orthogonal_(self.policy_mean.weight, gain=cast(float, 0.01))
         nn.init.constant_(self.policy_mean.bias, 0.0)
-
 
     def _get_activation(self, activation: str) -> nn.Module:
         """Get activation function by name."""

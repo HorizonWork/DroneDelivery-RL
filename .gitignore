@@ -69,3 +69,5 @@ models/
 # Others
 *.sqlite3
 *.db
+
+.ruff_cache/

@@ -12,12 +12,12 @@ from src.rl.training.phase_2_trainer import Phase2Trainer
 from src.rl.training.phase_3_trainer import Phase3Trainer
 
 __all__ = [
-    'PPOTrainer',
-    'TrainingState',
-    'TrainingConfig',
-    'CurriculumTrainer',
-    'HyperparameterScheduler',
-    'Phase1Trainer',
-    'Phase2Trainer',
-    'Phase3Trainer'
+    "PPOTrainer",
+    "TrainingState",
+    "TrainingConfig",
+    "CurriculumTrainer",
+    "HyperparameterScheduler",
+    "Phase1Trainer",
+    "Phase2Trainer",
+    "Phase3Trainer",
 ]

@@ -6,4 +6,4 @@ PID Controller for RRT* baseline (same as A* baseline).
 from ..astar_baseline.pid_controller import PIDController
 
 # Re-export for this module
-__all__ = ['PIDController']
+__all__ = ["PIDController"]

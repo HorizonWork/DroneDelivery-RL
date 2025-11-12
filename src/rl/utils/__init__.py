@@ -10,10 +10,10 @@ from src.rl.utils.replay_buffer import ExperienceBuffer, PrioritizedReplayBuffer
 from src.rl.utils.tensorboard_logger import TensorBoardLogger
 
 __all__ = [
-    'CheckpointManager',
-    'ObservationNormalizer',
-    'RewardNormalizer',
-    'ExperienceBuffer',
-    'PrioritizedReplayBuffer',
-    'TensorBoardLogger'
+    "CheckpointManager",
+    "ObservationNormalizer",
+    "RewardNormalizer",
+    "ExperienceBuffer",
+    "PrioritizedReplayBuffer",
+    "TensorBoardLogger",
 ]

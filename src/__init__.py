@@ -27,17 +27,19 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="torch")
 if not logging.getLogger().handlers:
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 # Package logger
 logger = logging.getLogger(__name__)
 logger.info(f"DroneDelivery-RL v{__version__} package loaded")
-logger.warning("Use direct imports from submodules (e.g., 'from src.rl import PPOAgent')")
+logger.warning(
+    "Use direct imports from submodules (e.g., 'from src.rl import PPOAgent')"
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # IMPORTANT: DO NOT ADD ANY OTHER IMPORTS HERE TO AVOID CIRCULAR DEPENDENCIES
 # ─────────────────────────────────────────────────────────────────────────────
 
-__all__ = ['__version__', '__author__', '__description__']
+__all__ = ["__version__", "__author__", "__description__"]
