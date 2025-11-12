@@ -111,37 +111,37 @@ class CoordinateTransformer:
         return world_position
 
 
-def world_to_grid(world_position: Tuple[float, float, float],
-                  cell_size: float = 0.5,
-                  floor_height: float = 3.0,
-                  origin: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-                  ) -> Tuple[int, int, int]:
-    """
-    Lightweight helper used by tests: convert world coordinates to grid indices.
-    """
-    x, y, z = world_position
-    ox, oy, oz = origin
-    gx = int(np.floor((x - ox) / cell_size))
-    gy = int(np.floor((y - oy) / cell_size))
-    gz = int(np.floor((z - oz) / floor_height))
-    return (gx, gy, gz)
+    def world_to_grid(world_position: Tuple[float, float, float],
+                    cell_size: float = 0.5,
+                    floor_height: float = 3.0,
+                    origin: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+                    ) -> Tuple[int, int, int]:
+        """
+        Lightweight helper used by tests: convert world coordinates to grid indices.
+        """
+        x, y, z = world_position
+        ox, oy, oz = origin
+        gx = int(np.floor((x - ox) / cell_size))
+        gy = int(np.floor((y - oy) / cell_size))
+        gz = int(np.floor((z - oz) / floor_height))
+        return (gx, gy, gz)
 
 
-def grid_to_world(grid_indices: Tuple[int, int, int],
-                  cell_size: float = 0.5,
-                  floor_height: float = 3.0,
-                  origin: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-                  ) -> Tuple[float, float, float]:
-    """
-    Inverse of world_to_grid; returns the center of the target cell in world coordinates.
-    """
-    gx, gy, gz = grid_indices
-    ox, oy, oz = origin
-    x = ox + (gx + 0.5) * cell_size
-    y = oy + (gy + 0.5) * cell_size
-    z = oz + gz * floor_height + 0.5 * floor_height
-    return (float(x), float(y), float(z))
-    
+    def grid_to_world(grid_indices: Tuple[int, int, int],
+                    cell_size: float = 0.5,
+                    floor_height: float = 3.0,
+                    origin: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+                    ) -> Tuple[float, float, float]:
+        """
+        Inverse of world_to_grid; returns the center of the target cell in world coordinates.
+        """
+        gx, gy, gz = grid_indices
+        ox, oy, oz = origin
+        x = ox + (gx + 0.5) * cell_size
+        y = oy + (gy + 0.5) * cell_size
+        z = oz + gz * floor_height + 0.5 * floor_height
+        return (float(x), float(y), float(z))
+        
     def body_to_world(self, body_position: np.ndarray, drone_pose: Pose) -> np.ndarray:
         """
         Transform position from body frame to world frame.
