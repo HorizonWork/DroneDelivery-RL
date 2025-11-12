@@ -17,96 +17,109 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from src.utils import setup_logging
 from src.utils.visualization import SystemVisualizer, TrajectoryPlotter
+
 
 class ReportGenerator:
     """
     Comprehensive evaluation report generator.
     Creates detailed reports matching academic paper format.
     """
-    
+
     def __init__(self, config_path: str):
         # Basic setup
         self.logger = logging.getLogger(__name__)
-        
+
         # Report configuration
         self.report_config = {
-            'title': 'Indoor Multi-Floor UAV Delivery: Energy-Aware Navigation Evaluation',
-            'authors': ['Huynh Nhut Huy', 'Nguyen Ly Minh Ky', 'Luong Danh Doanh', 'Nguyen Huy Hoang'],
-            'institution': 'FPT University Ho Chi Minh City',
-            'date': datetime.now().strftime('%B %d, %Y')
+            "title": "Indoor Multi-Floor UAV Delivery: Energy-Aware Navigation Evaluation",
+            "authors": [
+                "Huynh Nhut Huy",
+                "Nguyen Ly Minh Ky",
+                "Luong Danh Doanh",
+                "Nguyen Huy Hoang",
+            ],
+            "institution": "FPT University Ho Chi Minh City",
+            "date": datetime.now().strftime("%B %d, %Y"),
         }
-        
+
         # Table formatting
         self.table_precision = {
-            'success_rate': 1,      # 96.2%
-            'energy': 0,            # 610J
-            'time': 1,              # 31.5s
-            'collision_rate': 1,    # 0.7%
-            'ate': 3                # 0.080m
+            "success_rate": 1,  # 96.2%
+            "energy": 0,  # 610J
+            "time": 1,  # 31.5s
+            "collision_rate": 1,  # 0.7%
+            "ate": 3,  # 0.080m
         }
-        
+
         self.logger.info("Report Generator initialized")
-    
-    def generate_complete_report(self, evaluation_results: Dict[str, Any], 
-                               baseline_results: Dict[str, Any],
-                               output_path: str) -> str:
+
+    def generate_complete_report(
+        self,
+        evaluation_results: Dict[str, Any],
+        baseline_results: Dict[str, Any],
+        output_path: str,
+    ) -> str:
         """
         Generate complete evaluation report.
-        
+
         Args:
             evaluation_results: RL model evaluation results
             baseline_results: Baseline comparison results
             output_path: Output report file path
-            
+
         Returns:
             Generated report content
         """
         self.logger.info("Generating comprehensive evaluation report")
-        
+
         # Generate report sections
         sections = []
-        
+
         # Title and header
         sections.append(self._generate_header())
-        
+
         # Executive summary
-        sections.append(self._generate_executive_summary(evaluation_results, baseline_results))
-        
+        sections.append(
+            self._generate_executive_summary(evaluation_results, baseline_results)
+        )
+
         # Table 3: Performance comparison
         sections.append(self._generate_table_3(evaluation_results, baseline_results))
-        
+
         # Detailed results
         sections.append(self._generate_detailed_results(evaluation_results))
-        
+
         # Energy analysis
         sections.append(self._generate_energy_analysis(evaluation_results))
-        
+
         # Trajectory analysis
         sections.append(self._generate_trajectory_analysis(evaluation_results))
-        
+
         # Statistical significance
-        sections.append(self._generate_statistical_analysis(evaluation_results, baseline_results))
-        
+        sections.append(
+            self._generate_statistical_analysis(evaluation_results, baseline_results)
+        )
+
         # Conclusions and recommendations
         sections.append(self._generate_conclusions(evaluation_results))
-        
+
         # Combine all sections
-        report_content = '\n\n'.join(sections)
-        
+        report_content = "\n\n".join(sections)
+
         # Save report
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(output_file, 'w') as f:
+
+        with open(output_file, "w") as f:
             f.write(report_content)
-        
+
         self.logger.info(f"Report generated: {output_file}")
         return report_content
-    
+
     def _generate_header(self) -> str:
         """Generate report header."""
         return f"""
@@ -121,26 +134,27 @@ EVALUATION REPORT
 Comprehensive performance analysis of the PPO-based energy-aware 
 indoor drone delivery system on the five-floor environment.
 """
-    
-    def _generate_executive_summary(self, evaluation_results: Dict[str, Any], 
-                                   baseline_results: Dict[str, Any]) -> str:
+
+    def _generate_executive_summary(
+        self, evaluation_results: Dict[str, Any], baseline_results: Dict[str, Any]
+    ) -> str:
         """Generate executive summary section."""
-        metrics = evaluation_results.get('performance_metrics', {})
-        targets = evaluation_results.get('targets_met', {})
-        
+        metrics = evaluation_results.get("performance_metrics", {})
+        targets = evaluation_results.get("targets_met", {})
+
         # Key performance indicators
-        success_rate = metrics.get('success_rate', 0)
-        energy = metrics.get('mean_energy', 0)
-        collision_rate = metrics.get('collision_rate', 0)
-        ate_error = metrics.get('mean_ate', 0) * 100  # Convert to cm
-        
+        success_rate = metrics.get("success_rate", 0)
+        energy = metrics.get("mean_energy", 0)
+        collision_rate = metrics.get("collision_rate", 0)
+        ate_error = metrics.get("mean_ate", 0) * 100  # Convert to cm
+
         # Energy savings calculation
         energy_savings = 0.0
-        if 'baseline_comparison' in evaluation_results:
-            baseline_comp = evaluation_results['baseline_comparison']
-            if 'energy_savings' in baseline_comp:
-                energy_savings = baseline_comp['energy_savings'].get('vs_astar_only', 0)
-        
+        if "baseline_comparison" in evaluation_results:
+            baseline_comp = evaluation_results["baseline_comparison"]
+            if "energy_savings" in baseline_comp:
+                energy_savings = baseline_comp["energy_savings"].get("vs_astar_only", 0)
+
         return f"""
 EXECUTIVE SUMMARY
 =================
@@ -169,73 +183,93 @@ The system demonstrates {evaluation_results.get('summary', {}).get('performance_
 performance with {'excellent' if success_rate >= 96 else 'good' if success_rate >= 90 else 'acceptable'} 
 navigation capabilities and {'significant' if energy_savings >= 25 else 'moderate'} energy efficiency improvements.
 """
-    
-    def _generate_table_3(self, evaluation_results: Dict[str, Any], 
-                         baseline_results: Dict[str, Any]) -> str:
+
+    def _generate_table_3(
+        self, evaluation_results: Dict[str, Any], baseline_results: Dict[str, Any]
+    ) -> str:
         """Generate Table 3: Performance Comparison."""
         # Extract metrics
-        rl_metrics = evaluation_results.get('performance_metrics', {})
-        
+        rl_metrics = evaluation_results.get("performance_metrics", {})
+
         # Baseline data (would be loaded from baseline_results)
         baseline_data = {
-            'A* Only': {
-                'success_rate': 75.0, 'mean_energy': 2800, 'std_energy': 450,
-                'mean_time': 95.0, 'std_time': 25.0, 'collision_rate': 8.0, 'mean_ate': 0.045
+            "A* Only": {
+                "success_rate": 75.0,
+                "mean_energy": 2800,
+                "std_energy": 450,
+                "mean_time": 95.0,
+                "std_time": 25.0,
+                "collision_rate": 8.0,
+                "mean_ate": 0.045,
             },
-            'RRT+PID': {
-                'success_rate': 88.0, 'mean_energy': 2400, 'std_energy': 380,
-                'mean_time': 78.0, 'std_time': 18.0, 'collision_rate': 4.0, 'mean_ate': 0.038
+            "RRT+PID": {
+                "success_rate": 88.0,
+                "mean_energy": 2400,
+                "std_energy": 380,
+                "mean_time": 78.0,
+                "std_time": 18.0,
+                "collision_rate": 4.0,
+                "mean_ate": 0.038,
             },
-            'Random': {
-                'success_rate': 12.0, 'mean_energy': 3500, 'std_energy': 800,
-                'mean_time': 120.0, 'std_time': 45.0, 'collision_rate': 35.0, 'mean_ate': 0.080
-            }
+            "Random": {
+                "success_rate": 12.0,
+                "mean_energy": 3500,
+                "std_energy": 800,
+                "mean_time": 120.0,
+                "std_time": 45.0,
+                "collision_rate": 35.0,
+                "mean_ate": 0.080,
+            },
         }
-        
+
         # Add RL results
-        baseline_data['PPO (Ours)'] = {
-            'success_rate': rl_metrics.get('success_rate', 0),
-            'mean_energy': rl_metrics.get('mean_energy', 0),
-            'std_energy': rl_metrics.get('std_energy', 0),
-            'mean_time': rl_metrics.get('mean_time', 0),
-            'std_time': rl_metrics.get('std_time', 0),
-            'collision_rate': rl_metrics.get('collision_rate', 0),
-            'mean_ate': rl_metrics.get('mean_ate', 0)
+        baseline_data["PPO (Ours)"] = {
+            "success_rate": rl_metrics.get("success_rate", 0),
+            "mean_energy": rl_metrics.get("mean_energy", 0),
+            "std_energy": rl_metrics.get("std_energy", 0),
+            "mean_time": rl_metrics.get("mean_time", 0),
+            "std_time": rl_metrics.get("std_time", 0),
+            "collision_rate": rl_metrics.get("collision_rate", 0),
+            "mean_ate": rl_metrics.get("mean_ate", 0),
         }
-        
+
         # Format table
         table_lines = [
             "TABLE 3: PERFORMANCE COMPARISON",
             "=" * 90,
             f"{'Method':<12} {'Success%':<9} {'Energy(J)':<15} {'Time(s)':<12} {'Collisions%':<12} {'ATE(m)':<10}",
-            "-" * 90
+            "-" * 90,
         ]
-        
+
         for method_name, data in baseline_data.items():
-            line = (f"{method_name:<12} "
-                   f"{data['success_rate']:<9.1f} "
-                   f"{data['mean_energy']:<8.0f}±{data['std_energy']:<6.0f} "
-                   f"{data['mean_time']:<6.1f}±{data['std_time']:<5.1f} "
-                   f"{data['collision_rate']:<12.1f} "
-                   f"{data['mean_ate']:<5.3f}")
+            line = (
+                f"{method_name:<12} "
+                f"{data['success_rate']:<9.1f} "
+                f"{data['mean_energy']:<8.0f}±{data['std_energy']:<6.0f} "
+                f"{data['mean_time']:<6.1f}±{data['std_time']:<5.1f} "
+                f"{data['collision_rate']:<12.1f} "
+                f"{data['mean_ate']:<5.3f}"
+            )
             table_lines.append(line)
-        
-        table_lines.extend([
-            "=" * 90,
-            "",
-            "Performance improvements of PPO vs A* Only:",
-            f"• Success Rate: +{baseline_data['PPO (Ours)']['success_rate'] - baseline_data['A* Only']['success_rate']:.1f}%",
-            f"• Energy Savings: {((baseline_data['A* Only']['mean_energy'] - baseline_data['PPO (Ours)']['mean_energy']) / baseline_data['A* Only']['mean_energy'] * 100):.1f}%",
-            f"• Time Improvement: {((baseline_data['A* Only']['mean_time'] - baseline_data['PPO (Ours)']['mean_time']) / baseline_data['A* Only']['mean_time'] * 100):.1f}%",
-            f"• Collision Reduction: {((baseline_data['A* Only']['collision_rate'] - baseline_data['PPO (Ours)']['collision_rate']) / baseline_data['A* Only']['collision_rate'] * 100):.1f}%"
-        ])
-        
-        return '\n'.join(table_lines)
-    
+
+        table_lines.extend(
+            [
+                "=" * 90,
+                "",
+                "Performance improvements of PPO vs A* Only:",
+                f"• Success Rate: +{baseline_data['PPO (Ours)']['success_rate'] - baseline_data['A* Only']['success_rate']:.1f}%",
+                f"• Energy Savings: {((baseline_data['A* Only']['mean_energy'] - baseline_data['PPO (Ours)']['mean_energy']) / baseline_data['A* Only']['mean_energy'] * 100):.1f}%",
+                f"• Time Improvement: {((baseline_data['A* Only']['mean_time'] - baseline_data['PPO (Ours)']['mean_time']) / baseline_data['A* Only']['mean_time'] * 100):.1f}%",
+                f"• Collision Reduction: {((baseline_data['A* Only']['collision_rate'] - baseline_data['PPO (Ours)']['collision_rate']) / baseline_data['A* Only']['collision_rate'] * 100):.1f}%",
+            ]
+        )
+
+        return "\n".join(table_lines)
+
     def _generate_detailed_results(self, evaluation_results: Dict[str, Any]) -> str:
         """Generate detailed results section."""
-        metrics = evaluation_results.get('performance_metrics', {})
-        
+        metrics = evaluation_results.get("performance_metrics", {})
+
         return f"""
 DETAILED RESULTS
 ================
@@ -268,15 +302,15 @@ Mean ATE Error: {metrics.get('mean_ate', 0)*100:.1f} ± {metrics.get('std_ate', 
   • VI-SLAM performance: Robust across multi-floor environment
   • Tracking loss incidents: Minimal with rapid recovery
 """
-    
+
     def _generate_energy_analysis(self, evaluation_results: Dict[str, Any]) -> str:
         """Generate energy analysis section."""
-        energy_analysis = evaluation_results.get('energy_analysis', {})
-        metrics = evaluation_results.get('performance_metrics', {})
-        
-        mean_energy = metrics.get('mean_energy', 0)
-        std_energy = metrics.get('std_energy', 0)
-        
+        energy_analysis = evaluation_results.get("energy_analysis", {})
+        metrics = evaluation_results.get("performance_metrics", {})
+
+        mean_energy = metrics.get("mean_energy", 0)
+        std_energy = metrics.get("std_energy", 0)
+
         return f"""
 ENERGY CONSUMPTION ANALYSIS
 ============================
@@ -306,11 +340,11 @@ Energy Optimization Recommendations:
 2. {'✓ Efficient' if std_energy <= 200 else 'Reduce power variance'}: Power consumption consistency  
 3. {'✓ Good' if mean_energy <= 2200 else 'Implement hover reduction'}: Hovering time minimization
 """
-    
+
     def _generate_trajectory_analysis(self, evaluation_results: Dict[str, Any]) -> str:
         """Generate trajectory analysis section."""
-        trajectory_analysis = evaluation_results.get('trajectory_analysis', {})
-        
+        trajectory_analysis = evaluation_results.get("trajectory_analysis", {})
+
         return f"""
 TRAJECTORY ANALYSIS
 ===================
@@ -342,12 +376,13 @@ Jerk Minimization: {'Effective' if trajectory_analysis else 'Analysis in progres
 Acceleration Profiles: {'Smooth' if trajectory_analysis else 'Data processing required'}
 Velocity Consistency: {'Good' if trajectory_analysis else 'Metrics under analysis'}
 """
-    
-    def _generate_statistical_analysis(self, evaluation_results: Dict[str, Any], 
-                                      baseline_results: Dict[str, Any]) -> str:
+
+    def _generate_statistical_analysis(
+        self, evaluation_results: Dict[str, Any], baseline_results: Dict[str, Any]
+    ) -> str:
         """Generate statistical significance analysis."""
-        baseline_comparison = evaluation_results.get('baseline_comparison', {})
-        
+        baseline_comparison = evaluation_results.get("baseline_comparison", {})
+
         return f"""
 STATISTICAL SIGNIFICANCE ANALYSIS
 ==================================
@@ -386,16 +421,16 @@ Confidence Intervals (95%):
 
 CONCLUSION: {'Strong statistical evidence of superior performance' if baseline_comparison else 'Statistical analysis in progress'}
 """
-    
+
     def _generate_conclusions(self, evaluation_results: Dict[str, Any]) -> str:
         """Generate conclusions and recommendations."""
-        targets = evaluation_results.get('targets_met', {})
-        summary = evaluation_results.get('summary', {})
-        
-        overall_success = targets.get('all_targets_met', False)
-        performance_grade = summary.get('performance_grade', 'N/A')
-        recommendation = summary.get('recommendation', 'Assessment ongoing')
-        
+        targets = evaluation_results.get("targets_met", {})
+        summary = evaluation_results.get("summary", {})
+
+        overall_success = targets.get("all_targets_met", False)
+        performance_grade = summary.get("performance_grade", "N/A")
+        recommendation = summary.get("recommendation", "Assessment ongoing")
+
         return f"""
 CONCLUSIONS AND RECOMMENDATIONS
 ===============================
@@ -446,52 +481,70 @@ Research Contributions:
 FINAL VERDICT: {'SYSTEM READY FOR DEPLOYMENT' if overall_success and performance_grade in ['A', 'B'] else 'SYSTEM REQUIRES ADDITIONAL DEVELOPMENT'}
 """
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Generate evaluation report')
-    parser.add_argument('--evaluation', type=str, required=True,
-                       help='Path to evaluation results JSON file')
-    parser.add_argument('--baselines', type=str, required=True,
-                       help='Path to baseline results JSON file')
-    parser.add_argument('--output', type=str, default='results/evaluation_report.txt',
-                       help='Output report file path')
-    parser.add_argument('--config', type=str, default='config/evaluation_config.yaml',
-                       help='Configuration file path')
-    
+    parser = argparse.ArgumentParser(description="Generate evaluation report")
+    parser.add_argument(
+        "--evaluation",
+        type=str,
+        required=True,
+        help="Path to evaluation results JSON file",
+    )
+    parser.add_argument(
+        "--baselines",
+        type=str,
+        required=True,
+        help="Path to baseline results JSON file",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="results/evaluation_report.txt",
+        help="Output report file path",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config/evaluation_config.yaml",
+        help="Configuration file path",
+    )
+
     args = parser.parse_args()
-    
+
     # Load results
-    with open(args.evaluation, 'r') as f:
+    with open(args.evaluation, "r") as f:
         evaluation_results = json.load(f)
-    
-    with open(args.baselines, 'r') as f:
+
+    with open(args.baselines, "r") as f:
         baseline_results = json.load(f)
-    
+
     # Generate report
     generator = ReportGenerator(args.config)
     report_content = generator.generate_complete_report(
         evaluation_results, baseline_results, args.output
     )
-    
+
     print("EVALUATION REPORT GENERATED")
     print("=" * 40)
     print(f"Report saved to: {args.output}")
     print(f"Report length: {len(report_content.split())} words")
-    
+
     # Print executive summary
-    lines = report_content.split('\n')
+    lines = report_content.split("\n")
     summary_start = None
     summary_end = None
-    
+
     for i, line in enumerate(lines):
-        if 'EXECUTIVE SUMMARY' in line:
+        if "EXECUTIVE SUMMARY" in line:
             summary_start = i
-        elif summary_start and line.startswith('TABLE 3'):
+        elif summary_start and line.startswith("TABLE 3"):
             summary_end = i
             break
-    
+
     if summary_start and summary_end:
         print("\nEXECUTIVE SUMMARY:")
-        print('\n'.join(lines[summary_start:summary_end]))
+        print("\n".join(lines[summary_start:summary_end]))
+
 
 if __name__ == "__main__":
     main()

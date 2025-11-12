@@ -28,6 +28,7 @@ from typing import List, Sequence, Tuple
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import sys
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -237,7 +238,12 @@ def fly_segment(
         daemon=True,
     )
     monitor.start()
-    summary = {"segment": segment_index, "target": target, "collision": False, "respawned": False}
+    summary = {
+        "segment": segment_index,
+        "target": target,
+        "collision": False,
+        "respawned": False,
+    }
     try:
         deadline = time.time() + args.cruise_timeout
         while time.time() < deadline:
@@ -270,7 +276,9 @@ def fly_segment(
             quaternion_to_tilt_deg(state.orientation) if state else None
         )
         if summary["collision"] and args.respawn_on_collision:
-            logging.warning("Collision detected on segment %d, respawning...", segment_index + 1)
+            logging.warning(
+                "Collision detected on segment %d, respawning...", segment_index + 1
+            )
             try:
                 bridge.reset_drone()
                 bridge.takeoff(args.takeoff_altitude)
