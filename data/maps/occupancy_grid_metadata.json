@@ -1,0 +1,26 @@
+{
+  "origin": [
+    0.0,
+    0.0,
+    15.0
+  ],
+  "size": [
+    20.0,
+    20.0,
+    30.0
+  ],
+  "cell_size": 0.5,
+  "dimensions": [
+    40,
+    40,
+    60
+  ],
+  "shape": [
+    40,
+    40,
+    60
+  ],
+  "dtype": "uint8",
+  "occupied_cells": 15168,
+  "free_cells": 80832
+}
