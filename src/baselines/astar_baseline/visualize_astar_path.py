@@ -44,6 +44,7 @@ class AStarPathVisualizer:
         
         # Target positions (loaded from UE)
         self.spawn_position: Optional[Tuple[float, float, float]] = None
+        self.actual_start_position: Optional[Tuple[float, float, float]] = None
         self.landing_targets: Dict[str, Tuple[float, float, float]] = {}
         
         print("✅ A* Path Visualizer initialized")
@@ -93,6 +94,9 @@ class AStarPathVisualizer:
         loaded_count = 0
         failed_count = 0
         
+        # Safety offset: fly 90cm above landing pad to avoid collision with pillar
+        safety_offset_z = -0.9  # -0.9m in NED coordinates (negative = up)
+        
         for target_id in targets_per_floor:
             target_name = f"Landing_{target_id}"
             try:
@@ -100,7 +104,7 @@ class AStarPathVisualizer:
                 position = (
                     target_pose.position.x_val,
                     target_pose.position.y_val,
-                    target_pose.position.z_val
+                    target_pose.position.z_val + safety_offset_z  # Add 90cm up
                 )
                 self.landing_targets[target_name] = position
                 loaded_count += 1
@@ -112,6 +116,7 @@ class AStarPathVisualizer:
         
         print(f"\n📊 Actor Loading Summary:")
         print(f"   ✅ Successfully loaded: {loaded_count} landing targets")
+        print(f"   🛡️  Safety offset applied: +90cm above each landing pad")
         if failed_count > 0:
             print(f"   ⚠️  Failed to load: {failed_count} targets")
             print(f"   💡 Make sure Landing_XXX actors exist in your UE scene")
@@ -129,12 +134,79 @@ class AStarPathVisualizer:
         self.client.enableApiControl(True)
         self.client.armDisarm(True)
     
+    def reset_to_spawn(self):
+        """
+        Reset drone to DroneSpawn position for consistent mission start.
+        
+        Research rationale:
+        - Ensures reproducible initial conditions across all missions
+        - Eliminates variability from random spawn positions or falling
+        - Provides known safe starting position
+        """
+        if self.spawn_position is None:
+            print("⚠️  DroneSpawn position not loaded, using current position")
+            return
+        
+        print(f"\n📍 Resetting drone to DroneSpawn position...")
+        print(f"   Target: ({self.spawn_position[0]:.2f}, "
+              f"{self.spawn_position[1]:.2f}, {self.spawn_position[2]:.2f})")
+        
+        # Reset to spawn position using simSetVehiclePose
+        # This provides clean initial state without gravity effects
+        self.client.simSetVehiclePose(
+            airsim.Pose(
+                airsim.Vector3r(
+                    self.spawn_position[0],
+                    self.spawn_position[1],
+                    self.spawn_position[2]
+                ),
+                airsim.Quaternionr(0, 0, 0, 1)  # Level orientation
+            ),
+            True  # Ignore collision (for reset)
+        )
+        time.sleep(1.0)  # Allow physics to stabilize
+        
+        # Verify position after reset
+        state = self.client.getMultirotorState()
+        actual_pos = state.kinematics_estimated.position
+        print(f"   Actual: ({actual_pos.x_val:.2f}, "
+              f"{actual_pos.y_val:.2f}, {actual_pos.z_val:.2f})")
+        print("✅ Drone reset to spawn position")
+    
     def takeoff(self):
-        """Takeoff drone"""
+        """Takeoff drone from current position"""
         print("\n🛫 Taking off...")
         self.client.takeoffAsync().join()
         time.sleep(2)
-        print("✅ Airborne")
+        
+        # CRITICAL: Reset collision info after takeoff
+        # AirSim bug: collision flag may be set when drone is on ground
+        collision_info = self.client.simGetCollisionInfo()
+        if collision_info.has_collided:
+            print("⚠️  Collision flag was set at spawn (AirSim bug)")
+            print("   Resetting collision state...")
+            # Move slightly to clear collision state
+            current_state = self.client.getMultirotorState()
+            pos = current_state.kinematics_estimated.position
+            self.client.moveToPositionAsync(
+                pos.x_val, pos.y_val, pos.z_val - 0.5, 1
+            ).join()
+            time.sleep(0.5)
+        
+        # Get position after takeoff for mission start
+        state = self.client.getMultirotorState()
+        pos = state.kinematics_estimated.position
+        self.actual_start_position = (pos.x_val, pos.y_val, pos.z_val)
+        
+        # Verify no collision after takeoff
+        collision_info = self.client.simGetCollisionInfo()
+        if collision_info.has_collided:
+            print("⚠️  WARNING: Collision still detected after takeoff!")
+        else:
+            print(f"✅ Airborne at ({self.actual_start_position[0]:.2f}, "
+                  f"{self.actual_start_position[1]:.2f}, "
+                  f"{self.actual_start_position[2]:.2f})")
+            print("✅ Collision state: CLEAR")
     
     def land(self):
         """Land drone"""
@@ -322,7 +394,11 @@ class AStarPathVisualizer:
         
         print(f"\n{'='*70}")
         print(f"🚀 A* MISSION: {start_name} → {target_name}")
-        print(f"   Start: ({self.spawn_position[0]:.2f}, {self.spawn_position[1]:.2f}, {self.spawn_position[2]:.2f})")
+        print(f"   Spawn: ({self.spawn_position[0]:.2f}, {self.spawn_position[1]:.2f}, {self.spawn_position[2]:.2f})")
+        
+        # Use actual airborne position as start (after takeoff)
+        mission_start_pos = self.actual_start_position if self.actual_start_position else self.spawn_position
+        print(f"   Start: ({mission_start_pos[0]:.2f}, {mission_start_pos[1]:.2f}, {mission_start_pos[2]:.2f})")
         print(f"   Goal:  ({goal_position[0]:.2f}, {goal_position[1]:.2f}, {goal_position[2]:.2f})")
         print(f"{'='*70}")
         
@@ -336,7 +412,9 @@ class AStarPathVisualizer:
         print("\n🗺️  Planning path with A*...")
         start_time = time.time()
         
-        path = self.astar_controller.plan_path(self.spawn_position, goal_position)
+        # Use actual airborne position as A* start point
+        mission_start_pos = self.actual_start_position if self.actual_start_position else self.spawn_position
+        path = self.astar_controller.plan_path(mission_start_pos, goal_position)
         
         planning_time = time.time() - start_time
         
@@ -357,9 +435,10 @@ class AStarPathVisualizer:
                 color_rgb=(1.0, 0.0, 0.0),  # Red for planned path
                 thickness=5.0
             )
-            # Mark start and goal
+            # Mark spawn, start, and goal
+            mission_start_pos = self.actual_start_position if self.actual_start_position else self.spawn_position
             self.mark_waypoints_in_ue(
-                [self.spawn_position, goal_position],
+                [mission_start_pos, goal_position],
                 color_rgb=(1.0, 1.0, 0.0),  # Yellow markers
                 scale=1.0
             )
@@ -369,22 +448,8 @@ class AStarPathVisualizer:
         # ========================================
         print("\n🎯 Executing path with PID controller...")
         
-        # Move to start position
-        print(f"📍 Moving to start position...")
-        self.client.simSetVehiclePose(
-            airsim.Pose(
-                airsim.Vector3r(
-                    self.spawn_position[0], 
-                    self.spawn_position[1], 
-                    self.spawn_position[2]
-                ),
-                airsim.Quaternionr(0, 0, 0, 1)
-            ),
-            True
-        )
-        time.sleep(2)
-        
-        # Reset PID
+        # Drone is already airborne from takeoff, no need to move to start
+        # Just reset PID and start following the path
         self.pid_controller.reset()
         self.astar_controller.set_path(path)
         
@@ -501,6 +566,8 @@ class AStarPathVisualizer:
             'success': success,
             'start': start_name,
             'target': target_name,
+            'spawn_position': self.spawn_position,
+            'mission_start_position': self.actual_start_position,
             'planning_time': planning_time,
             'execution_time': execution_time,
             'total_time': planning_time + execution_time,
@@ -660,36 +727,37 @@ def main():
             print("\n❌ Failed to load UE actors. Exiting.")
             return
         
-        # Prepare drone
+        # Prepare drone and reset to consistent start position
         visualizer.prepare_drone()
+        visualizer.reset_to_spawn()  # Reset to DroneSpawn before takeoff
         visualizer.takeoff()
         
         # ========================================
         # OPTION 1: Single mission to specific target
         # ========================================
         # Uncomment and specify target:
-        # result = visualizer.run_mission(
-        #     start_name="DroneSpawn",
-        #     target_name="Landing_301",  # Specify your target
-        #     visualize=True
-        # )
+        result = visualizer.run_mission(
+            start_name="DroneSpawn",
+            target_name="Landing_101",  # Specify your target
+            visualize=True
+        )
         
         # ========================================
         # OPTION 2: Multiple missions (random targets)
         # ========================================
-        results = visualizer.run_multiple_missions(
-            num_missions=3,  # Change this number
-            visualize=True
-        )
+        # results = visualizer.run_multiple_missions(
+        #     num_missions=3,  # Change this number
+        #     visualize=True
+        # )
         
-        # Land
-        visualizer.land()
+        # # Land
+        # visualizer.land()
         
-        print("\n✅ Visualization completed!")
-        print("\n💡 Tips:")
-        print("  - Red lines: Planned A* path")
-        print("  - Green lines: Actual drone trajectory")
-        print("  - Yellow spheres: Start and goal positions")
+        # print("\n✅ Visualization completed!")
+        # print("\n💡 Tips:")
+        # print("  - Red lines: Planned A* path")
+        # print("  - Green lines: Actual drone trajectory")
+        # print("  - Yellow spheres: Start and goal positions")
         
     except KeyboardInterrupt:
         print("\n⚠️  Interrupted by user")

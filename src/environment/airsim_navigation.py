@@ -45,8 +45,9 @@ class BuildingMapper:
         for scan_height in scan_heights:
             print(f"\n📍 Scanning from height: {scan_height}m (position {scan_heights.index(scan_height)+1}/{len(scan_heights)})")
             
-            # Move drone to scanning position (x=0, y=0, z=-height)
-            self.client.moveToPositionAsync(0, 0, -scan_height, 5).join()
+            # Move drone to scanning position (x=-60, y=30, z=-height)
+            # Scan center at building location, then scan at different heights
+            self.client.moveToPositionAsync(-60, 30, -scan_height, 5).join()
             time.sleep(1)
 
             # Get depth images from multiple angles at this height
@@ -122,8 +123,9 @@ class BuildingMapper:
 
                     # Rotate to world frame based on drone orientation
                     angle_rad = np.deg2rad(angle)
-                    x_world = z_cam * np.cos(angle_rad) - x_cam * np.sin(angle_rad)
-                    y_world = z_cam * np.sin(angle_rad) + x_cam * np.cos(angle_rad)
+                    # Coordinates relative to scan center at (-60, 30)
+                    x_world = -60 + z_cam * np.cos(angle_rad) - x_cam * np.sin(angle_rad)
+                    y_world = 30 + z_cam * np.sin(angle_rad) + x_cam * np.cos(angle_rad)
                     z_world = -scan_height - y_cam
 
                     self.static_obstacles.append([x_world, y_world, z_world])
@@ -414,12 +416,12 @@ class MapGenerator:
             self.connect_airsim()
         
         # Enable API control
-        self.client.enableApiControl(True)
-        self.client.armDisarm(True)
-        
+        self.client.enableApiControl(True) #type: ignore
+        self.client.armDisarm(True)  # type: ignore
+
         # Takeoff
         print("\n🛫 Taking off for environment scan...")
-        self.client.takeoffAsync().join()
+        self.client.takeoffAsync().join()  # type: ignore
         time.sleep(2)
         
         # Scan environment from multiple heights
@@ -447,9 +449,9 @@ class MapGenerator:
         
         # Land
         print("\n🛬 Landing...")
-        self.client.landAsync().join()
-        self.client.armDisarm(False)
-        self.client.enableApiControl(False)
+        self.client.landAsync().join() # type: ignore
+        self.client.armDisarm(False)  # type: ignore
+        self.client.enableApiControl(False)  # type: ignore
         
         return self.grid
     
@@ -520,14 +522,18 @@ def main():
     print("=" * 60)
     
     # Create map generator
-    generator = MapGenerator(resolution=0.5)
+    # OPTIMIZED: Use 1.0m resolution for faster A* planning
+    # This reduces grid size by 8x (0.5m → 1.0m = 2^3)
+    # Trade-off: Slightly less detailed map, but A* is 20-50x faster
+    generator = MapGenerator(resolution=1.0)
     
     try:
         # Generate map from AirSim with multi-height scanning
         # Scan at 5 different heights: 3m, 9m, 15m, 21m, 27m
+        # OPTIMIZED: Reduced scan_radius to 60m for smaller grid
         _grid = generator.generate_map(
             scan_heights=[3, 9, 15, 21, 27],
-            scan_radius=80
+            scan_radius=60  # Reduced from 80m for faster processing
         )
         
         # Export map
@@ -538,6 +544,18 @@ def main():
         
         print("\n✅ Map generation completed successfully!")
         print(f"Map files saved to: {metadata['files']['metadata']}")
+        
+        # Performance estimate for A* planning
+        total_cells = metadata['total_cells']
+        print("\n📊 A* Performance Estimate:")
+        print(f"   Total cells: {total_cells:,}")
+        if total_cells < 5_000_000:
+            print("   Expected A* planning time: 1-10s ✅ FAST")
+        elif total_cells < 15_000_000:
+            print("   Expected A* planning time: 10-30s ⚠️ MODERATE")
+        else:
+            print("   Expected A* planning time: > 1 minute ❌ SLOW")
+            print("   💡 Recommendation: Increase resolution to 1.5m or 2.0m")
         
     except Exception as e:
         print(f"\n❌ Map generation failed: {e}")
