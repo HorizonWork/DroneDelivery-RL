@@ -64,6 +64,7 @@ class RewardFunction:
         self.episode_rewards: List[RewardComponents] = []
         self.cumulative_energy: float = 0.0
         self.episode_start_time: float = 0.0
+        self.last_components: Optional[RewardComponents] = None
 
         # Validation bounds
         self.max_reasonable_distance = 100.0  # meters
@@ -131,6 +132,7 @@ class RewardFunction:
 
         # Store for analysis
         self.episode_rewards.append(components)
+        self.last_components = components
 
         # Update energy tracking
         self.cumulative_energy += abs(
@@ -345,8 +347,24 @@ class RewardFunction:
         self.episode_rewards.clear()
         self.cumulative_energy = 0.0
         self.episode_start_time = time.time()
+        self.last_components = None
 
         self.logger.debug("Reward function reset for new episode")
+
+    def get_last_components_dict(self) -> Optional[Dict[str, float]]:
+        """Return the most recent reward component values."""
+        component = self.last_components
+        if component is None:
+            return None
+        return {
+            "goal_bonus": float(component.goal_bonus),
+            "distance_penalty": float(component.distance_penalty),
+            "time_penalty": float(component.time_penalty),
+            "thrust_penalty": float(component.thrust_penalty),
+            "jerk_penalty": float(component.jerk_penalty),
+            "collision_penalty": float(component.collision_penalty),
+            "total_reward": float(component.total_reward),
+        }
 
     def get_episode_statistics(self) -> Dict[str, Any]:
         """
@@ -393,6 +411,25 @@ class RewardFunction:
         }
 
         return stats
+
+    def get_episode_totals(self) -> Optional[Dict[str, float]]:
+        """Return total contribution of each reward component for the episode."""
+        if not self.episode_rewards:
+            return None
+
+        totals = {
+            "goal_bonus": sum(r.goal_bonus for r in self.episode_rewards),
+            "distance_penalty": sum(r.distance_penalty for r in self.episode_rewards),
+            "time_penalty": sum(r.time_penalty for r in self.episode_rewards),
+            "thrust_penalty": sum(r.thrust_penalty for r in self.episode_rewards),
+            "jerk_penalty": sum(r.jerk_penalty for r in self.episode_rewards),
+            "collision_penalty": sum(
+                r.collision_penalty for r in self.episode_rewards
+            ),
+        }
+        totals["total_reward"] = sum(r.total_reward for r in self.episode_rewards)
+        totals["steps"] = len(self.episode_rewards)
+        return {k: float(v) for k, v in totals.items()}
 
     def validate_reward_config(self) -> bool:
         """

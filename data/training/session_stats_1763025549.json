@@ -1,0 +1,93 @@
+{
+  "total_episodes": 2,
+  "average_step_time": 0.0,
+  "max_step_time": 0.0,
+  "action_statistics": {
+    "message": "No actions recorded yet"
+  },
+  "target_statistics": {
+    "total_targets": 30,
+    "targets_by_floor": {
+      "floor_1": 6,
+      "floor_2": 6,
+      "floor_3": 6,
+      "floor_4": 6,
+      "floor_5": 6
+    },
+    "targets_by_difficulty": {
+      "easy": 6,
+      "medium": 12,
+      "hard": 12
+    },
+    "current_target": null,
+    "curriculum_phase": 1,
+    "target_history_length": 1,
+    "recent_targets": [
+      "Landing_104"
+    ]
+  },
+  "curriculum_progress": {
+    "curriculum_enabled": true,
+    "total_progress": {
+      "timesteps_completed": 0,
+      "total_timesteps": 5000000,
+      "completion_percentage": 0.0
+    },
+    "current_phase": {
+      "phase_number": 1,
+      "phase_name": "single_floor_static",
+      "episodes_completed": 0,
+      "timesteps_completed": 0,
+      "success_rate": 0.0,
+      "recent_success_rate": 0.0,
+      "ready_for_next": false,
+      "phase_duration": 9.583616495132446
+    },
+    "phase_configs": {
+      "1": {
+        "name": "single_floor_static",
+        "timesteps": 1000000,
+        "active_floors": 1,
+        "dynamic_obstacles": false,
+        "difficulty": "easy",
+        "success_threshold": 0.85
+      },
+      "2": {
+        "name": "two_floors_dynamic",
+        "timesteps": 2000000,
+        "active_floors": 2,
+        "dynamic_obstacles": true,
+        "difficulty": "medium",
+        "success_threshold": 0.9
+      },
+      "3": {
+        "name": "five_floors_full",
+        "timesteps": 2000000,
+        "active_floors": 5,
+        "dynamic_obstacles": true,
+        "difficulty": "hard",
+        "success_threshold": 0.96
+      }
+    },
+    "all_phases_progress": {
+      "1": {
+        "episodes_completed": 0,
+        "timesteps_completed": 0,
+        "success_rate": 0.0,
+        "ready_for_next": false
+      },
+      "2": {
+        "episodes_completed": 0,
+        "timesteps_completed": 0,
+        "success_rate": 0.0,
+        "ready_for_next": false
+      },
+      "3": {
+        "episodes_completed": 0,
+        "timesteps_completed": 0,
+        "success_rate": 0.0,
+        "ready_for_next": false
+      }
+    }
+  }
+}

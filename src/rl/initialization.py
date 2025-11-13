@@ -5,7 +5,9 @@ Helper functions for initializing RL components.
 
 import torch
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Tuple
+from pathlib import Path
+import yaml
 
 from src.rl.agents.ppo_agent import PPOAgent, PPOConfig
 from src.rl.agents.actor_critic import ActorCriticNetwork, NetworkConfig
@@ -26,6 +28,16 @@ def initialize_rl_system(rl_config: Dict[str, Any]) -> Dict[str, Any]:
     """
     logger = logging.getLogger(__name__)
     logger.info("Initializing RL system...")
+
+    hyperparams, hyper_source = _load_hyperparameters(
+        rl_config.get("hyperparameters_path")
+    )
+    resolved_rl_config: Dict[str, Any] = {}
+    if hyperparams:
+        logger.info(f"Applying PPO hyperparameters from {hyper_source}")
+        resolved_rl_config = _deep_merge_dicts(resolved_rl_config, hyperparams)
+    resolved_rl_config = _deep_merge_dicts(resolved_rl_config, rl_config)
+    rl_config = resolved_rl_config
 
     # Device setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -96,3 +108,46 @@ def create_agent_from_config(config_path: str) -> PPOAgent:
     rl_system = initialize_rl_system(config.get("rl", {}))
 
     return rl_system["agent"]
+
+
+def _deep_merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge two dictionaries."""
+    result = dict(base) if isinstance(base, dict) else {}
+    for key, value in (override or {}).items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = _deep_merge_dicts(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _load_hyperparameters(
+    path_value: Optional[str],
+) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Load hyperparameter YAML file if provided."""
+    if not path_value:
+        return {}, None
+
+    path = Path(path_value)
+    if not path.is_absolute():
+        path = Path.cwd() / path_value
+
+    if not path.exists():
+        logging.getLogger(__name__).warning(
+            "Hyperparameter file not found at %s. Using inline RL config.", path
+        )
+        return {}, None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+            return data, str(path)
+    except Exception as exc:
+        logging.getLogger(__name__).error(
+            "Failed to read hyperparameter file %s: %s", path, exc
+        )
+        return {}, None

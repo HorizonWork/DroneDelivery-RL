@@ -14,6 +14,8 @@ import json
 from pathlib import Path
 from typing import Dict, Any, List
 import numpy as np
+import random
+import torch
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -23,6 +25,16 @@ from src.rl.agents.ppo_agent import PPOAgent
 from src.rl.training.curriculum_trainer import CurriculumManager
 from src.rl.initialization import initialize_rl_system
 from src.utils import setup_logging, load_config
+
+
+def set_global_seeds(seed: int) -> None:
+    """Set global seeds for reproducible experiments."""
+    logging.info("Setting global random seed to %d", seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 class FullCurriculumTrainer:
@@ -35,6 +47,11 @@ class FullCurriculumTrainer:
 
     def __init__(self, config_path: str):
         self.config = load_config(config_path)
+        rl_seed = 42
+        if isinstance(self.config.rl, dict):
+            rl_seed = int(self.config.rl.get("seed", rl_seed))
+        set_global_seeds(rl_seed)
+        self.seed = rl_seed
 
         # Setup logging
         self.logger_system = setup_logging(self.config.logging)

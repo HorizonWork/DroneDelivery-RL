@@ -7,6 +7,34 @@ environment:
   obstacles:
     density: 0.15
     dynamic_obstacles: true
+  spawn_location: [60.0, -30.0, -3.0]
+  spawn_orientation: [0.0, 0.0, 0.0]
+  initial_takeoff_altitude: 3.0
+  world_origin_offset: [60.0, -30.0, 0.0]
+  spawn_randomization:
+    enabled: true
+    xy_jitter_m: 2.0
+    max_radius_m: 200.0
+  airsim:
+    drone_name: "Drone0"
+    spawn_location: [60.0, -30.0, -3.0]
+    spawn_orientation: [0.0, 0.0, 0.0]
+    takeoff_altitude: 3.0
+  dynamic_obstacles:
+    enabled: true
+    human_agents: 12
+    speed_range_mps: [0.8, 1.5]
+    min_spawn_distance_m: 5.0
+  curriculum_enabled: true
+  curriculum_config_path: "config/training/curriculum_config.yaml"
+  curriculum_force_phase: null
+  drone_controller:
+    control_frequency: 20.0
+    max_velocity: 10.0
+    max_acceleration: 30.0
+    action_scale: 5.0
+    expect_normalized_actions: true
+    strict_acceleration_check: false 
 evaluation:
   num_episodes: 100
   timeout: 300.0
@@ -15,11 +43,8 @@ logging:
   file_logging: true
   level: INFO
 rl:
-  ppo:
-    batch_size: 256
-    epochs: 10
-    learning_rate: 0.0003
-    rollout_length: 2048
+  hyperparameters_path: "config/training/ppo_hyperparameters.yaml"
+  seed: 42
   training:
     eval_frequency: 50000
     total_timesteps: 5000000

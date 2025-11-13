@@ -412,6 +412,9 @@ class PPOAgent:
             )
 
             self.optimizer.step()
+            for param in self.policy.parameters():
+                if param.grad is not None:
+                    param.grad = None
 
             # Store losses
             epoch_policy_losses.append(policy_loss.item())

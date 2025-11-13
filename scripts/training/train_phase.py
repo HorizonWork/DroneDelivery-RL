@@ -13,12 +13,10 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, Any, Optional
+import random
 
 import numpy as np
 import torch
-
-
-sys.setrecursionlimit(10000)
 # Add repo root to path for `src` imports
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -32,8 +30,6 @@ from src.rl.utils.checkpoint_manager import CheckpointManager
 from src.rl.utils.normalization import ObservationNormalizer
 from src.rl.utils.tensorboard_logger import TensorBoardLogger
 from src.utils import setup_logging, load_config, DataRecorder
-
-import time
 
 
 def verify_airsim_connection(retries: int = 5, delay: float = 2.0) -> None:
@@ -59,9 +55,14 @@ def verify_airsim_connection(retries: int = 5, delay: float = 2.0) -> None:
     sys.exit(1)
 
 
-verify_airsim_connection()
-logging.info("Creating environment...")
-
+def set_global_seeds(seed: int) -> None:
+    """Set seeds for Python, NumPy, and PyTorch for reproducibility."""
+    logging.info("Setting global random seed to %d", seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 class MainPPOTrainer:
     """
@@ -72,6 +73,11 @@ class MainPPOTrainer:
     def __init__(self, config_path: str, experiment_name: str = None):
         # Load configuration
         self.config = load_config(config_path)
+        rl_seed = 42
+        if isinstance(self.config.rl, dict):
+            rl_seed = int(self.config.rl.get("seed", rl_seed))
+        set_global_seeds(rl_seed)
+        self.seed = rl_seed
         self.experiment_name = experiment_name or f"ppo_drone_{int(time.time())}"
 
         # Setup logging with experiment name
@@ -161,6 +167,9 @@ class MainPPOTrainer:
         self.logger.info("STARTING MAIN PPO TRAINING")
         self.training_start_time = time.time()
 
+        verify_airsim_connection()
+        self.logger.info("AirSim connection verified")
+
         # Resume from checkpoint if provided
         if resume_checkpoint:
             self._load_checkpoint_and_resume(resume_checkpoint)
@@ -197,6 +206,11 @@ class MainPPOTrainer:
                 if self.episode_count % 50 == 0:
                     self._report_training_progress()
 
+                    if self.episode_count % 100 == 0 and torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        self.logger.debug(
+                                f"GPU Memory: {torch.cuda.memory_allocated() / 1024**3:.2f}GB allocated"
+                            )
             except KeyboardInterrupt:
                 self.logger.info("Training interrupted by user")
                 self._handle_training_interruption()
@@ -272,6 +286,7 @@ class MainPPOTrainer:
         episode_energy = 0.0
         episode_steps = 0
         done = False
+        last_info: Dict[str, Any] = {}
 
         # Episode rollout
         while not done and episode_steps < 1000:  # Max episode length
@@ -296,6 +311,7 @@ class MainPPOTrainer:
                 info.get("energy_consumption", 0.0)
             )
             episode_data["positions"].append(info.get("position", [0, 0, 0]))
+            last_info = info
 
             # Update episode metrics
             episode_reward += reward
@@ -311,6 +327,7 @@ class MainPPOTrainer:
         # Policy update after episode
         final_value = self.agent.get_value(observation) if not done else 0.0
         training_metrics = self.agent.update_policy(episode_data, final_value)
+        trajectory_positions = list(episode_data["positions"])
 
         # Record episode data
         self.data_recorder.record_episode(
@@ -319,8 +336,8 @@ class MainPPOTrainer:
                 "timestep": self.global_timestep,
                 "reward": episode_reward,
                 "energy": episode_energy,
-                "success": info.get("success", False),
-                "trajectory": episode_data["positions"],
+                "success": last_info.get("success", False),
+                "trajectory": trajectory_positions,
                 "phase": (
                     self.curriculum_manager.get_current_phase()["name"]
                     if self.curriculum_manager
@@ -329,6 +346,15 @@ class MainPPOTrainer:
             }
         )
 
+        for data_list in episode_data.values():
+            if isinstance(data_list, list):
+                data_list.clear()
+        episode_data.clear()
+        del episode_data
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         self.episode_count += 1
         episode_time = time.time() - episode_start
 
@@ -336,19 +362,17 @@ class MainPPOTrainer:
             "reward": episode_reward,
             "energy": episode_energy,
             "steps": episode_steps,
-            "success": info.get("success", False),
-            "collision": info.get("collision", False),
+            "success": last_info.get("success", False),
+            "collision": last_info.get("collision", False),
             "training_metrics": training_metrics,
             "episode_time": episode_time,
         }
 
     def _check_phase_advancement(self) -> bool:
         """Check if curriculum should advance to next phase."""
-        # ADD CHECK!
         if self.curriculum_manager is None:
             return False
 
-        # Original code
         recent_performance = self._calculate_recent_performance()
         return self.curriculum_manager.should_advance_phase(
             timesteps=self.total_timesteps,
@@ -358,6 +382,12 @@ class MainPPOTrainer:
 
     def _advance_curriculum_phase(self):
         """Advance to next curriculum phase."""
+        if self.curriculum_manager is None:
+            self.logger.warning(
+                "Requested curriculum phase advancement without a curriculum manager"
+            )
+            return False
+
         old_phase = self.curriculum_manager.get_current_phase()
 
         # Log phase completion
@@ -394,7 +424,7 @@ class MainPPOTrainer:
     def _calculate_recent_performance(self) -> Dict[str, float]:
         """Calculate recent performance metrics."""
         if len(self.episode_rewards) < 10:
-            return {"success_rate": 0.0, "mean_energy": 0.0}
+            return {"success_rate": 0.0, "mean_energy": 0.0, "avg_reward": 0.0}
 
         recent_count = min(50, len(self.episode_rewards))
         recent_rewards = self.episode_rewards[-recent_count:]
@@ -409,8 +439,16 @@ class MainPPOTrainer:
             e for r, e in zip(recent_rewards, recent_energies) if r > 400
         ]
         mean_energy = np.mean(successful_energies) if successful_energies else 0.0
+        
+        # Average reward for curriculum advancement
+        avg_reward = float(np.mean(recent_rewards))
 
-        return {"success_rate": success_rate, "mean_energy": float(mean_energy)}
+        return {
+            "success_rate": success_rate, 
+            "mean_energy": float(mean_energy),
+            "avg_reward": avg_reward  # ✅ Thêm key này
+        }
+
 
     def _update_performance_metrics(self, episode_results: Dict[str, Any]):
         """Update performance tracking."""
@@ -452,116 +490,209 @@ class MainPPOTrainer:
         if not self.current_environment:
             return
 
-        eval_results = []
-        for _ in range(5):  # Quick 5-episode eval
-            observation, _ = self.current_environment.reset()
-            observation = self.obs_normalizer.normalize(observation)
+        try:
+            eval_results = []
+            for _ in range(5):  # Quick 5-episode eval
+                try:
+                    observation, _ = self.current_environment.reset()
+                    observation = self.obs_normalizer.normalize(observation)
 
-            episode_reward = 0.0
-            episode_energy = 0.0
-            done = False
-            steps = 0
+                    episode_reward = 0.0
+                    episode_energy = 0.0
+                    done = False
+                    steps = 0
+                    last_info: Dict[str, Any] = {}
 
-            while not done and steps < 500:
-                action, _, _ = self.agent.select_action(observation, deterministic=True)
-                observation, reward, done, info = self.current_environment.step(action)
-                observation = self.obs_normalizer.normalize(observation)
+                    while not done and steps < 500:
+                        action, _, _ = self.agent.select_action(
+                            observation, deterministic=True
+                        )
+                        (
+                            next_observation,
+                            reward,
+                            terminated,
+                            truncated,
+                            info,
+                        ) = self.current_environment.step(action)
+                        done = terminated or truncated
+                        observation = self.obs_normalizer.normalize(next_observation)
 
-                episode_reward += reward
-                episode_energy += info.get("energy_consumption", 0.0)
-                steps += 1
+                        episode_reward += reward
+                        episode_energy += info.get("energy_consumption", 0.0)
+                        steps += 1
+                        last_info = info
 
-            eval_results.append(
-                {
-                    "reward": episode_reward,
-                    "energy": episode_energy,
-                    "success": info.get("success", False),
-                }
+                    eval_results.append(
+                        {
+                            "reward": episode_reward,
+                            "energy": episode_energy,
+                            "success": last_info.get("success", False),
+                        }
+                    )
+                except Exception as episode_error:
+                    self.logger.warning(
+                        "Phase evaluation episode failed: %s", episode_error
+                    )
+                    continue
+
+            if not eval_results:
+                self.logger.warning(
+                    "Phase evaluation skipped because all evaluation episodes failed."
+                )
+                return
+
+            # Log phase evaluation
+            successes = [r for r in eval_results if r["success"]]
+            success_rate = len(successes) / len(eval_results) * 100
+            mean_energy = (
+                np.mean([r["energy"] for r in successes]) if successes else 0
             )
 
-        # Log phase evaluation
-        successes = [r for r in eval_results if r["success"]]
-        success_rate = len(successes) / len(eval_results) * 100
-        mean_energy = np.mean([r["energy"] for r in successes]) if successes else 0
+            self.tensorboard_logger.log_scalars(
+                {
+                    "Phase_Eval/Success_Rate": success_rate,
+                    "Phase_Eval/Mean_Energy": mean_energy,
+                },
+                self.global_timestep,
+            )
 
-        self.tensorboard_logger.log_scalars(
-            {
-                "Phase_Eval/Success_Rate": success_rate,
-                "Phase_Eval/Mean_Energy": mean_energy,
-            },
-            self.global_timestep,
-        )
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception as error:
+            self.logger.error(
+                f"Phase evaluation failed due to unexpected error: {error}",
+                exc_info=True,
+            )
 
     def _run_comprehensive_evaluation(self):
         """Run comprehensive evaluation with 20 episodes."""
+        if not self.current_environment:
+            self.logger.warning("Cannot run evaluation - environment is not initialized")
+            return {
+                "success_rate": 0.0,
+                "mean_energy": 0.0,
+                "collision_rate": 0.0,
+            }
+
         self.logger.info(
             f"Running comprehensive evaluation at timestep {self.global_timestep:,}"
         )
 
-        eval_results = []
-        for episode in range(20):
-            observation, _ = self.current_environment.reset()
-            observation = self.obs_normalizer.normalize(observation)
+        try:
+            eval_results = []
+            for episode in range(20):
+                try:
+                    observation, _ = self.current_environment.reset()
+                    observation = self.obs_normalizer.normalize(observation)
 
-            episode_reward = 0.0
-            episode_energy = 0.0
-            trajectory = []
-            done = False
-            steps = 0
+                    episode_reward = 0.0
+                    episode_energy = 0.0
+                    trajectory = []
+                    done = False
+                    steps = 0
+                    last_info: Dict[str, Any] = {}
 
-            while not done and steps < 1000:
-                action, _, _ = self.agent.select_action(observation, deterministic=True)
-                observation, reward, done, info = self.current_environment.step(action)
-                observation = self.obs_normalizer.normalize(observation)
+                    while not done and steps < 1000:
+                        action, _, _ = self.agent.select_action(
+                            observation, deterministic=True
+                        )
+                        (
+                            next_observation,
+                            reward,
+                            terminated,
+                            truncated,
+                            info,
+                        ) = self.current_environment.step(action)
+                        done = terminated or truncated
+                        observation = self.obs_normalizer.normalize(next_observation)
 
-                episode_reward += reward
-                episode_energy += info.get("energy_consumption", 0.0)
-                trajectory.append(info.get("position", [0, 0, 0]))
-                steps += 1
+                        episode_reward += reward
+                        episode_energy += info.get("energy_consumption", 0.0)
+                        trajectory.append(info.get("position", [0, 0, 0]))
+                        steps += 1
+                        last_info = info
 
-            eval_results.append(
-                {
-                    "reward": episode_reward,
-                    "energy": episode_energy,
-                    "success": info.get("success", False),
-                    "collision": info.get("collision", False),
-                    "trajectory": trajectory,
-                    "steps": steps,
+                    eval_results.append(
+                        {
+                            "reward": episode_reward,
+                            "energy": episode_energy,
+                            "success": last_info.get("success", False),
+                            "collision": last_info.get("collision", False),
+                            "trajectory": trajectory,
+                            "steps": steps,
+                        }
+                    )
+                except Exception as episode_error:
+                    self.logger.warning(
+                        "Evaluation episode %d failed: %s", episode, episode_error
+                    )
+                    continue
+
+            if not eval_results:
+                self.logger.warning(
+                    "Comprehensive evaluation skipped because all episodes failed."
+                )
+                return {
+                    "success_rate": 0.0,
+                    "mean_energy": 0.0,
+                    "collision_rate": 0.0,
                 }
+
+            # Calculate comprehensive metrics
+            successes = [r for r in eval_results if r["success"]]
+            success_rate = len(successes) / len(eval_results) * 100
+            mean_energy = np.mean([r["energy"] for r in successes]) if successes else 0
+            collision_rate = (
+                np.mean([r["collision"] for r in eval_results]) * 100
+                if eval_results
+                else 0
+            )
+            mean_steps = np.mean([r["steps"] for r in successes]) if successes else 0
+
+            # Log comprehensive evaluation
+            eval_metrics = {
+                "Eval/Success_Rate": success_rate,
+                "Eval/Mean_Energy": mean_energy,
+                "Eval/Collision_Rate": collision_rate,
+                "Eval/Mean_Steps": mean_steps,
+                "Eval/Episodes": len(eval_results),
+            }
+
+            self.tensorboard_logger.log_scalars(eval_metrics, self.global_timestep)
+
+            self.logger.info(
+                f"Evaluation: {success_rate:.1f}% success, {mean_energy:.0f}J energy, "
+                f"{collision_rate:.1f}% collisions"
             )
 
-        # Calculate comprehensive metrics
-        successes = [r for r in eval_results if r["success"]]
-        success_rate = len(successes) / len(eval_results) * 100
-        mean_energy = np.mean([r["energy"] for r in successes]) if successes else 0
-        collision_rate = np.mean([r["collision"] for r in eval_results]) * 100
-        mean_steps = np.mean([r["steps"] for r in successes]) if successes else 0
-
-        # Log comprehensive evaluation
-        eval_metrics = {
-            "Eval/Success_Rate": success_rate,
-            "Eval/Mean_Energy": mean_energy,
-            "Eval/Collision_Rate": collision_rate,
-            "Eval/Mean_Steps": mean_steps,
-            "Eval/Episodes": len(eval_results),
-        }
-
-        self.tensorboard_logger.log_scalars(eval_metrics, self.global_timestep)
-
-        self.logger.info(
-            f"Evaluation: {success_rate:.1f}% success, {mean_energy:.0f}J energy, "
-            f"{collision_rate:.1f}% collisions"
-        )
-
-        return {
-            "success_rate": success_rate,
-            "mean_energy": mean_energy,
-            "collision_rate": collision_rate,
-        }
+            return {
+                "success_rate": success_rate,
+                "mean_energy": mean_energy,
+                "collision_rate": collision_rate,
+            }
+        except Exception as error:
+            self.logger.error(
+                f"Comprehensive evaluation failed: {error}", exc_info=True
+            )
+            return {
+                "success_rate": 0.0,
+                "mean_energy": 0.0,
+                "collision_rate": 0.0,
+            }
 
     def _create_checkpoint(self):
         """Create training checkpoint."""
         recent_performance = self._calculate_recent_performance()
+        curriculum_phase_index = (
+            self.curriculum_manager.current_phase_index
+            if self.curriculum_manager is not None
+            else -1
+        )
+        phase_name = (
+            self.curriculum_manager.get_current_phase()["name"]
+            if self.curriculum_manager is not None
+            else "standard"
+        )
 
         checkpoint_path = self.checkpoint_manager.save_checkpoint(
             self.agent,
@@ -570,8 +701,8 @@ class MainPPOTrainer:
             recent_performance["success_rate"],
             recent_performance["mean_energy"],
             additional_data={
-                "curriculum_phase": self.curriculum_manager.current_phase_index,
-                "phase_name": self.curriculum_manager.get_current_phase()["name"],
+                "curriculum_phase": curriculum_phase_index,
+                "phase_name": phase_name,
                 "normalization_stats": {
                     "mean": self.obs_normalizer.mean.tolist(),
                     "variance": self.obs_normalizer.variance.tolist(),
@@ -632,8 +763,8 @@ class MainPPOTrainer:
                 "training_completed": True,
                 "final_model": True,
                 "experiment_name": self.experiment_name,
-            },
-            checkpoint_name="ppo_final",
+                "checkpoint_type": "final"
+            }
         )
 
         # Save training history
@@ -651,13 +782,19 @@ class MainPPOTrainer:
             json.dump(training_history, f, indent=2, default=str)
 
         # Complete training results
+        phases_completed = (
+            self.curriculum_manager.current_phase_index + 1
+            if self.curriculum_manager is not None
+            else 0
+        )
+
         final_results = {
             "training_completed": True,
             "experiment_name": self.experiment_name,
             "total_timesteps": self.global_timestep,
             "total_episodes": self.episode_count,
             "total_training_time_hours": total_time / 3600,
-            "phases_completed": self.curriculum_manager.current_phase_index + 1,
+            "phases_completed": phases_completed,
             "final_checkpoint": final_checkpoint,
             "final_evaluation": final_evaluation,
             "phase_performance_summary": self.phase_performance,
@@ -673,6 +810,24 @@ class MainPPOTrainer:
         self.logger.info(f"Final success rate: {final_evaluation['success_rate']:.1f}%")
         self.logger.info(f"Final energy: {final_evaluation['mean_energy']:.0f}J")
         self.logger.info(f"Model ready for evaluation!")
+
+        if self.current_environment:
+            try:
+                self.current_environment.reset()
+            except Exception as cleanup_error:
+                self.logger.warning(
+                    "Environment reset during cleanup failed: %s", cleanup_error
+                )
+
+            if hasattr(self.current_environment, "close"):
+                try:
+                    self.current_environment.close()
+                except Exception as cleanup_error:
+                    self.logger.warning(
+                        "Environment close during cleanup failed: %s", cleanup_error
+                    )
+
+            self.current_environment = None
 
         return final_results
 
@@ -697,10 +852,16 @@ class MainPPOTrainer:
 
             # Load additional data
             additional_data = checkpoint_data.get("additional_data", {})
-            if "curriculum_phase" in additional_data:
-                self.curriculum_manager.current_phase_index = additional_data[
-                    "curriculum_phase"
-                ]
+            curriculum_phase = additional_data.get("curriculum_phase")
+            if (
+                curriculum_phase is not None
+                and self.curriculum_manager is not None
+            ):
+                self.curriculum_manager.current_phase_index = curriculum_phase
+            elif curriculum_phase is not None:
+                self.logger.warning(
+                    "Checkpoint specified curriculum phase but no curriculum manager is configured"
+                )
 
             if "normalization_stats" in additional_data:
                 norm_stats = additional_data["normalization_stats"]
@@ -709,7 +870,7 @@ class MainPPOTrainer:
                 self.obs_normalizer.count = norm_stats["count"]
 
             self.logger.info(
-                f"✅ Resumed from checkpoint at timestep {self.global_timestep:,}"
+                f"Resumed from checkpoint at timestep {self.global_timestep:,}"
             )
 
         except Exception as e:
@@ -728,8 +889,10 @@ class MainPPOTrainer:
                 self.episode_count,
                 recent_performance["success_rate"],
                 recent_performance["mean_energy"],
-                additional_data={"emergency_save": True},
-                checkpoint_name="ppo_emergency",
+                additional_data={
+                    "emergency_save": True,
+                    "checkpoint_type": "emergency" 
+                }
             )
 
             self.logger.info(f"Emergency checkpoint saved: {emergency_checkpoint}")

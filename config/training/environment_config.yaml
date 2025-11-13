@@ -13,8 +13,9 @@ environment:
   # Drone spawn configuration
   spawn:
     name: "DroneSpawn"               # Spawn point name
-    location: [6000.0, -3000.0, 300.0]  # Exact coordinates from report
+    location: [60.0, -30.0, -3.0]    # Safe default spawn in NED (z negative = above ground)
     orientation: [0.0, 0.0, 0.0]     # Initial roll, pitch, yaw
+  world_origin_offset: [60.0, -30.0, 0.0]  # AirSim world coordinates for building origin (0, 0, 0)
     
   # Landing targets (Landing_101-506 systematic naming)
   targets:
@@ -38,8 +39,8 @@ environment:
   episode:
     max_duration_s: 300.0            # Maximum episode duration
     goal_tolerance_m: 0.5            # Goal reached tolerance
-    spawn_randomization: true       # Randomize spawn positions
-    target_randomization: true      # Randomize target selection
+    spawn_randomization: true        # Randomize spawn positions
+    target_randomization: true       # Randomize target selection
     
   # Dynamic obstacles
   dynamic_obstacles:
@@ -47,6 +48,26 @@ environment:
     human_agents: 12                 # Number of human agents
     speed_range_mps: [0.8, 1.5]     # Human walking speed range
     behavior: "corridor_walking"     # Human behavior model
+    min_spawn_distance_m: 5.0        # Keep humans at least 5m away from drone spawn
+  curriculum_enabled: true
+  curriculum_config_path: "config/training/curriculum_config.yaml"
+  curriculum_force_phase: null
+
+# AirSim + spawn overrides used throughout the codebase
+spawn_location: [60.0, -30.0, -3.0]
+spawn_orientation: [0.0, 0.0, 0.0]
+initial_takeoff_altitude: 3.0
+
+spawn_randomization:
+  enabled: true
+  xy_jitter_m: 2.0                  # Uniform XY noise range
+  max_radius_m: 200.0               # Clamp to avoid leaving playable area
+
+airsim:
+  drone_name: "Drone0"
+  spawn_location: [60.0, -30.0, -3.0]
+  spawn_orientation: [0.0, 0.0, 0.0]
+  takeoff_altitude: 3.0
     
 # Training environment settings
 training:

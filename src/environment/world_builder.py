@@ -11,6 +11,18 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+def _to_tuple3(
+    values: Optional[Any], fallback: Tuple[float, float, float]
+) -> Tuple[float, float, float]:
+    """Convert sequences to 3-element float tuples."""
+    if values is None:
+        values = fallback
+    data = list(values)
+    if len(data) < 3:
+        data.extend([0.0] * (3 - len(data)))
+    return tuple(float(data[i]) for i in range(3))
+
+
 class FloorType(Enum):
     """Floor types for different layouts."""
 
@@ -69,15 +81,36 @@ class WorldBuilder:
         # World parameters
         self.cell_size = config.get("cell_size", 0.5)  # meters
         self.total_cells = config.get("total_cells", 4000)  # As per report
-        self.spawn_location = config.get("spawn_location", [6000.0, -3000.0, 300.0])
-
-        # Dynamic obstacles (human agents)
-        self.enable_dynamic_obstacles = config.get("dynamic_obstacles", True)
-        self.num_human_agents = config.get("num_human_agents", 12)
-        self.human_speed_range = config.get("human_speed_range", [0.8, 1.5])  # m/s
+        self.spawn_location = _to_tuple3(
+            config.get("spawn_location", [6000.0, -3000.0, 300.0]),
+            (6000.0, -3000.0, 300.0),
+        )
+        self.world_origin_offset = _to_tuple3(
+            config.get("world_origin_offset", self.spawn_location),
+            self.spawn_location,
+        )
+        dynamic_cfg = config.get("dynamic_obstacles", {})
+        if isinstance(dynamic_cfg, dict):
+            self.enable_dynamic_obstacles = dynamic_cfg.get("enabled", True)
+            self.num_human_agents = dynamic_cfg.get("human_agents", 12)
+            self.human_speed_range = dynamic_cfg.get("speed_range_mps", [0.8, 1.5])
+            self.min_dynamic_spawn_distance = float(
+                dynamic_cfg.get("min_spawn_distance_m", 5.0)
+            )
+        else:
+            self.enable_dynamic_obstacles = bool(dynamic_cfg)
+            self.num_human_agents = config.get("num_human_agents", 12)
+            self.human_speed_range = config.get("human_speed_range", [0.8, 1.5])  # m/s
+            self.min_dynamic_spawn_distance = float(
+                config.get("min_spawn_distance_m", 5.0)
+            )
+        self.current_spawn_reference = self.spawn_location
+        self.spawn_local_offset: Optional[Tuple[float, float, float]] = None
+        self._alignment_warning_emitted = False
 
         # Build complete building specification
         self.building_spec = self._create_building_spec()
+        self._validate_alignment()
 
         # World state tracking
         self.static_obstacles: List[Tuple[float, float, float]] = []
@@ -93,12 +126,113 @@ class WorldBuilder:
         self.logger.info(
             f"Dynamic obstacles: {self.enable_dynamic_obstacles} ({self.num_human_agents} agents)"
         )
+        self.logger.info(f"World origin offset (AirSim): {self.world_origin_offset}")
 
     def set_airsim_bridge(self, bridge):
         """Set AirSim bridge reference."""
         self.airsim_bridge = bridge
         self.logger.info("AirSim bridge connected to world builder")
 
+    def update_spawn_reference(self, spawn_location: Tuple[float, float, float]):
+        """Update spawn alignment info when environment randomizes spawn."""
+        self.current_spawn_reference = _to_tuple3(spawn_location, self.spawn_location)
+        self.spawn_location = self.current_spawn_reference
+        if self.building_spec:
+            self.building_spec.spawn_location = self.current_spawn_reference
+        self._validate_alignment()
+        self.logger.debug(
+            "World builder spawn reference updated to %s", self.current_spawn_reference
+        )
+
+    def local_to_world(self, local_point: Tuple[float, float, float]) -> Tuple[float, float, float]:
+        """Convert building-local coordinates to AirSim world coordinates."""
+        origin = self.world_origin_offset
+        return (
+            local_point[0] + origin[0],
+            local_point[1] + origin[1],
+            local_point[2] + origin[2],
+        )
+
+    def _validate_alignment(self):
+        """Check spawn alignment between AirSim world and building coordinates."""
+        origin = np.array(self.world_origin_offset, dtype=np.float32)
+        spawn = np.array(self.current_spawn_reference, dtype=np.float32)
+        offset = spawn - origin
+        self.spawn_local_offset = tuple(offset.tolist())
+        self._alignment_warning_emitted = getattr(
+            self, "_alignment_warning_emitted", False
+        )
+
+        within_x = 0.0 <= offset[0] <= self.floor_dimensions["length"]
+        within_y = 0.0 <= offset[1] <= self.floor_dimensions["width"]
+
+        if within_x and within_y:
+            self.logger.debug(
+                "Spawn alignment OK. Local offset (%.2f, %.2f, %.2f) m within %.1fx%.1f m bounds",
+                offset[0],
+                offset[1],
+                offset[2],
+                self.floor_dimensions["length"],
+                self.floor_dimensions["width"],
+            )
+        else:
+            if not self._alignment_warning_emitted:
+                self.logger.warning(
+                    (
+                        "Spawn alignment mismatch: local offset (%.2f, %.2f) m "
+                        "exceeds floor bounds %.1fx%.1f m. Adjust world_origin_offset or spawn_location."
+                    ),
+                    offset[0],
+                    offset[1],
+                    self.floor_dimensions["length"],
+                    self.floor_dimensions["width"],
+                )
+                self._alignment_warning_emitted = True
+
+    def _is_safe_spawn_distance(self, candidate_xy: Tuple[float, float]) -> bool:
+        """Check if candidate dynamic obstacle spawn is far enough from drone spawn."""
+        if (
+            self.spawn_local_offset is None
+            or self.min_dynamic_spawn_distance <= 0.0
+        ):
+            return True
+        dx = candidate_xy[0] - self.spawn_local_offset[0]
+        dy = candidate_xy[1] - self.spawn_local_offset[1]
+        distance = float(np.hypot(dx, dy))
+        return distance >= self.min_dynamic_spawn_distance
+
+    def _sample_dynamic_obstacle_position(self) -> Tuple[float, float]:
+        """Sample a safe dynamic obstacle spawn location on current floor."""
+        max_attempts = 20
+        length = self.floor_dimensions["length"]
+        width = self.floor_dimensions["width"]
+
+        for _ in range(max_attempts):
+            x = np.random.uniform(2.0, length - 2.0)
+            y = np.random.uniform(2.0, width - 2.0)
+            if self._is_safe_spawn_distance((x, y)):
+                return x, y
+
+        # Fallback: clamp near boundary away from spawn
+        self.logger.warning(
+            "Could not place dynamic obstacle >= %.1fm from spawn after %d attempts; "
+            "falling back to edge placement",
+            self.min_dynamic_spawn_distance,
+            max_attempts,
+        )
+        if self.spawn_local_offset:
+            fallback_x = min(
+                max(self.spawn_local_offset[0] + self.min_dynamic_spawn_distance, 2.0),
+                length - 2.0,
+            )
+            fallback_y = min(
+                max(self.spawn_local_offset[1] + self.min_dynamic_spawn_distance, 2.0),
+                width - 2.0,
+            )
+        else:
+            fallback_x = length / 2.0
+            fallback_y = width / 2.0
+        return fallback_x, fallback_y
     def _create_building_spec(self) -> BuildingSpec:
         """Create complete building specification."""
         floors = []
@@ -363,9 +497,8 @@ class WorldBuilder:
             )  # Humans on floors 1-3
             floor_z = floor * self.floor_dimensions["height"]
 
-            # Random position within floor bounds
-            x = np.random.uniform(2.0, self.floor_dimensions["length"] - 2.0)
-            y = np.random.uniform(2.0, self.floor_dimensions["width"] - 2.0)
+            # Random position within floor bounds (respecting safe radius)
+            x, y = self._sample_dynamic_obstacle_position()
 
             # Random speed within range
             speed = np.random.uniform(
