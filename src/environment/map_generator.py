@@ -33,14 +33,14 @@ except ImportError:
 @dataclass
 class GridConfig:
     """Configuration for occupancy grid generation"""
-    origin: Tuple[float, float, float] = (0.0, 0.0, 15.0)  # (x, y, z) in meters (GRID space)
+    origin: Tuple[float, float, float] = (0.0, 0.0, 0.0)  # (x, y, z) in meters (GRID space)
     size: Tuple[float, float, float] = (20.0, 20.0, 30.0)  # (x, y, z) in meters
     cell_size: float = 0.5  # meters
     drone_radius: float = 0.3  # meters (for inflation)
     use_airsim: bool = False  # Use AirSim LiDAR scanning
     checkpoint_enabled: bool = True
     lidar_range: float = 50.0  # Maximum LiDAR range in meters
-    world_offset: Tuple[float, float, float] = (60.0, -30.0, 1.5)  # Unreal world offset in meters (from rebase)
+    world_offset: Tuple[float, float, float] = (6.0, -3.0, 1.5)  # Unreal world offset in meters (from rebase)
     
     def __post_init__(self):
         """Validate configuration parameters"""
