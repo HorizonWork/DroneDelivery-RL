@@ -1,0 +1,17 @@
+# Drone Controller Configuration
+control_frequency: 20.0  # Hz
+max_velocity: 10.0  # m/s (tăng từ 5.0)
+max_yaw_rate: 1.5  # rad/s
+max_acceleration: 30.0  # m/s² (tăng từ 20.0)
+
+# Action scaling for PPO
+action_scale: 5.0  # Scale from [-1,1] to physical units
+expect_normalized_actions: true
+
+# ✅ CRITICAL: Disable strict checking
+strict_acceleration_check: false  # Chỉ warn, không reject
+
+# Safety limits
+min_altitude: 0.5
+max_altitude: 20.0
+collision_avoidance: true

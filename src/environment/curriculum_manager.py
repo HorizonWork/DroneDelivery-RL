@@ -9,6 +9,8 @@ import time
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+import yaml
 
 
 class CurriculumPhase(Enum):
@@ -59,6 +61,12 @@ class CurriculumManager:
         # Curriculum configuration (matches training config)
         self.total_timesteps = config.get("total_timesteps", 5000000)  # 5M total
         self.enabled = config.get("curriculum_enabled", True)
+        self.curriculum_config_path = config.get(
+            "curriculum_config_path", "config/training/curriculum_config.yaml"
+        )
+        self.curriculum_force_phase = config.get("curriculum_force_phase")
+        self.curriculum_source: Optional[str] = None
+        self.phase_environment_overrides: Dict[str, Dict[str, Any]] = {}
 
         # Phase configurations (exact match with curriculum_config.yaml)
         self.phases = {
@@ -94,17 +102,19 @@ class CurriculumManager:
             ),
         }
 
+        # Progression criteria defaults (may be overridden by curriculum config)
+        self.evaluation_episodes = config.get("evaluation_episodes", 100)
+        self.evaluation_frequency = config.get("evaluation_frequency", 10000)
+        self.patience = config.get("patience", 5)
+
+        curriculum_data = self._load_curriculum_config()
+        if curriculum_data:
+            self._apply_curriculum_config(curriculum_data)
+
         # Current state
         self.current_phase = CurriculumPhase.PHASE_1
         self.progress = {phase: PhaseProgress() for phase in CurriculumPhase}
         self.total_timesteps_completed = 0
-
-        # Progression criteria
-        self.evaluation_episodes = config.get("evaluation_episodes", 100)
-        self.evaluation_frequency = config.get(
-            "evaluation_frequency", 10000
-        )  # timesteps
-        self.patience = config.get("patience", 5)  # evaluations
 
         # Recent performance tracking
         self.recent_episodes: List[Dict[str, Any]] = []
@@ -114,6 +124,8 @@ class CurriculumManager:
         self.progress[self.current_phase].phase_start_time = time.time()
 
         self.logger.info("Curriculum Manager initialized")
+        if self.curriculum_source:
+            self.logger.info(f"Loaded curriculum config from {self.curriculum_source}")
         if self.enabled:
             self.logger.info("3-phase curriculum enabled:")
             for phase, config in self.phases.items():
@@ -123,6 +135,9 @@ class CurriculumManager:
                 )
         else:
             self.logger.info("Curriculum learning disabled - using full environment")
+
+        if self.curriculum_force_phase:
+            self.force_phase_transition(self.curriculum_force_phase)
 
     def get_current_phase(self) -> int:
         """
@@ -292,6 +307,8 @@ class CurriculumManager:
         self.logger.info(
             f"  Difficulty: {current_config.difficulty} → {next_config.difficulty}"
         )
+        recent_success = 100 * self._calculate_recent_success_rate()
+        self.logger.info(f"  Recent success rate: {recent_success:.1f}%")
         self.logger.info("=" * 60)
 
         # Update current phase
@@ -333,14 +350,18 @@ class CurriculumManager:
             Environment configuration dictionary
         """
         phase_config = self.get_current_config()
-
-        return {
+        env_config = {
             "active_floors": phase_config.active_floors,
             "dynamic_obstacles": phase_config.dynamic_obstacles,
             "difficulty": phase_config.difficulty,
             "phase_name": phase_config.name,
             "success_threshold": phase_config.success_threshold,
         }
+        overrides = self.phase_environment_overrides.get(phase_config.name)
+        if overrides:
+            env_config["overrides"] = overrides
+
+        return env_config
 
     def get_progress_info(self) -> Dict[str, Any]:
         """
@@ -399,7 +420,107 @@ class CurriculumManager:
 
         return info
 
-    def force_phase_transition(self, target_phase: int):
+    def _resolve_path(self, path_value: str) -> Path:
+        """Resolve curriculum config path."""
+        path = Path(path_value)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        return path
+
+    def _load_curriculum_config(self) -> Optional[Dict[str, Any]]:
+        """Load curriculum configuration YAML if available."""
+        if not self.curriculum_config_path:
+            return None
+
+        path = self._resolve_path(self.curriculum_config_path)
+        if not path.exists():
+            self.logger.warning(
+                "Curriculum config file not found at %s. Using built-in defaults.",
+                path,
+            )
+            return None
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                self.curriculum_source = str(path)
+                return data
+        except Exception as exc:
+            self.logger.error(f"Failed to load curriculum config {path}: {exc}")
+            return None
+
+    def _apply_curriculum_config(self, cfg: Dict[str, Any]):
+        """Apply curriculum configuration data to runtime settings."""
+        curriculum_cfg = cfg.get("curriculum", {})
+        if curriculum_cfg:
+            self.enabled = curriculum_cfg.get("enabled", self.enabled)
+            self.total_timesteps = curriculum_cfg.get(
+                "total_timesteps", self.total_timesteps
+            )
+
+            phase_defs = curriculum_cfg.get("phases", [])
+            if phase_defs:
+                new_phases: Dict[CurriculumPhase, PhaseConfig] = {}
+                for idx, phase_def in enumerate(phase_defs, 1):
+                    try:
+                        phase_enum = CurriculumPhase(idx)
+                    except ValueError:
+                        self.logger.warning(
+                            "Ignoring curriculum phase index %s (out of supported range)",
+                            idx,
+                        )
+                        continue
+
+                    default_cfg = self.phases.get(phase_enum)
+                    new_phases[phase_enum] = PhaseConfig(
+                        phase=phase_enum,
+                        name=phase_def.get(
+                            "name",
+                            default_cfg.name if default_cfg else f"phase_{idx}",
+                        ),
+                        timesteps=phase_def.get(
+                            "timesteps", default_cfg.timesteps if default_cfg else 0
+                        ),
+                        active_floors=phase_def.get(
+                            "floors_active",
+                            default_cfg.active_floors if default_cfg else 1,
+                        ),
+                        dynamic_obstacles=phase_def.get(
+                            "dynamic_obstacles",
+                            default_cfg.dynamic_obstacles if default_cfg else True,
+                        ),
+                        difficulty=phase_def.get(
+                            "difficulty",
+                            default_cfg.difficulty if default_cfg else "medium",
+                        ),
+                        success_threshold=phase_def.get(
+                            "success_threshold",
+                            default_cfg.success_threshold if default_cfg else 0.9,
+                        ),
+                        min_episodes=phase_def.get(
+                            "min_episodes",
+                            default_cfg.min_episodes if default_cfg else 1000,
+                        ),
+                    )
+
+                if new_phases:
+                    self.phases = new_phases
+
+        progression_cfg = cfg.get("progression", {})
+        if progression_cfg:
+            self.evaluation_episodes = progression_cfg.get(
+                "evaluation_episodes", self.evaluation_episodes
+            )
+            self.evaluation_frequency = progression_cfg.get(
+                "evaluation_frequency", self.evaluation_frequency
+            )
+            self.patience = progression_cfg.get("patience", self.patience)
+
+        phase_overrides = cfg.get("phase_configs", {})
+        if isinstance(phase_overrides, dict):
+            self.phase_environment_overrides = phase_overrides
+
+    def force_phase_transition(self, target_phase: Any):
         """
         Force transition to specific phase (for testing).
 
@@ -410,11 +531,31 @@ class CurriculumManager:
             self.logger.warning("Cannot force phase transition - curriculum disabled")
             return
 
-        if target_phase not in [1, 2, 3]:
-            self.logger.error(f"Invalid phase number: {target_phase}")
+        target_enum: Optional[CurriculumPhase] = None
+        if isinstance(target_phase, CurriculumPhase):
+            target_enum = target_phase
+        elif isinstance(target_phase, str):
+            normalized = target_phase.strip().lower()
+            for phase, cfg in self.phases.items():
+                if cfg.name.lower() == normalized:
+                    target_enum = phase
+                    break
+            if target_enum is None:
+                try:
+                    target_enum = CurriculumPhase(int(target_phase))
+                except (ValueError, TypeError):
+                    target_enum = None
+        else:
+            try:
+                target_enum = CurriculumPhase(int(target_phase))
+            except (ValueError, TypeError):
+                target_enum = None
+
+        if target_enum is None:
+            self.logger.error(f"Invalid phase identifier: {target_phase}")
             return
 
-        target = CurriculumPhase(target_phase)
+        target = target_enum
         if target != self.current_phase:
             self.logger.warning(
                 f"Force transitioning from phase {self.current_phase.value} to {target_phase}"
