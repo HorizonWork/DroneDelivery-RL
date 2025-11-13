@@ -10,6 +10,11 @@
     30.0
   ],
   "cell_size": 0.5,
+  "world_offset": [
+    60.0,
+    -30.0,
+    1.5
+  ],
   "dimensions": [
     40,
     40,
@@ -21,6 +26,11 @@
     60
   ],
   "dtype": "uint8",
-  "occupied_cells": 15168,
-  "free_cells": 80832
+  "occupied_cells": 0,
+  "free_cells": 96000,
+  "coordinate_systems": {
+    "grid": "ENU (X=East, Y=North, Z=Up)",
+    "airsim": "NED (X=North, Y=East, Z=Down)",
+    "world_offset_note": "Unreal world was rebased by {60, -30, 1.5}m from PlayerStart"
+  }
 }

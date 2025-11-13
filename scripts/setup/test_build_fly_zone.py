@@ -9,7 +9,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.utils.build_fly_zone import FlyZoneBuilder, GridConfig
+from src.environment.map_generator import FlyZoneBuilder, GridConfig
 import numpy as np
 
 
