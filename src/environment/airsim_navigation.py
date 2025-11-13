@@ -24,58 +24,92 @@ class BuildingMapper:
 
     def scan_environment(self, scan_heights=None, scan_radius=100):
         """
-        Scan environment using depth camera from multiple heights.
-        Scans at 5 different Z positions for better coverage.
+        Scan environment using TELEPORT + DENSE grid sampling per floor.
+        Strategy: Multiple XY positions per floor for complete coverage.
         
         Args:
-            scan_heights: List of Z heights to scan from (meters, NED: negative=up)
-                         Default: [3, 9, 15, 21, 27] meters above ground
+            scan_heights: List of floor heights (meters above ground)
+                         Default: [3, 9, 15, 21, 27] - 5 floors
             scan_radius: Radius of scanning area (meters)
         """
         if scan_heights is None:
-            # Default: 5 scan positions at different heights
+            # 5 floors: ground+1m, floor1, floor2, floor3, floor4
             scan_heights = [3, 9, 15, 21, 27]  # meters
         
-        print("🏗️  Phase 1: Scanning building environment...")
-        print(f"   Scan strategy: {len(scan_heights)} positions at Z = {scan_heights} m")
+        # DENSE SAMPLING: Grid of scan positions per floor
+        # Cover building with 3x3 grid + center = 10 positions per floor
+        scan_positions_per_floor = [
+            (-60, 30),   # Center (building location)
+            (-70, 20),   # SW
+            (-70, 30),   # W
+            (-70, 40),   # NW
+            (-60, 40),   # N
+            (-50, 40),   # NE
+            (-50, 30),   # E
+            (-50, 20),   # SE
+            (-60, 20),   # S
+        ]
+        
+        print("🏗️  Phase 1: HIGH-DENSITY Floor-by-Floor Scanning (TELEPORT MODE)")
+        print(f"   📊 Strategy: {len(scan_heights)} floors × {len(scan_positions_per_floor)} positions/floor")
+        print(f"   🚀 Mode: TELEPORT (instant + safe)")
+        print(f"   📐 Coverage: {len(scan_positions_per_floor) * len(scan_heights)} total scan points")
         
         # Collect depth data from all scan positions
         all_depth_data = []
+        total_scans = 0
         
-        for scan_height in scan_heights:
-            print(f"\n📍 Scanning from height: {scan_height}m (position {scan_heights.index(scan_height)+1}/{len(scan_heights)})")
+        for floor_idx, scan_height in enumerate(scan_heights):
+            print(f"\n{'='*60}")
+            print(f"🏢 FLOOR {floor_idx+1}/{len(scan_heights)} (Height: {scan_height}m)")
+            print(f"{'='*60}")
             
-            # Move drone to scanning position (x=-60, y=30, z=-height)
-            # Scan center at building location, then scan at different heights
-            self.client.moveToPositionAsync(-60, 30, -scan_height, 5).join()
-            time.sleep(1)
+            for pos_idx, (x, y) in enumerate(scan_positions_per_floor):
+                print(f"   📍 Position {pos_idx+1}/{len(scan_positions_per_floor)}: ({x:.0f}, {y:.0f}, {scan_height}m)")
+                
+                # 24 angles per position = 360° / 15° for complete coverage
+                angles = np.linspace(0, 360, 24, endpoint=False)
+                
+                for angle_idx, angle in enumerate(angles):
+                    # TELEPORT to scanning position (INSTANT + SAFE)
+                    pose = airsim.Pose()
+                    pose.position.x_val = float(x)
+                    pose.position.y_val = float(y)
+                    pose.position.z_val = float(-scan_height)  # NED: negative = up
+                    
+                    # Set orientation (yaw)
+                    import math
+                    yaw_rad = math.radians(angle)
+                    pose.orientation = airsim.to_quaternion(0, 0, yaw_rad)
+                    
+                    # TELEPORT - instant positioning, ignore collisions for safety
+                    self.client.simSetVehiclePose(pose, ignore_collision=True)
+                    time.sleep(0.15)  # Minimal delay for camera stabilization
 
-            # Get depth images from multiple angles at this height
-            angles = np.linspace(0, 360, 8, endpoint=False)
+                    # Capture depth image
+                    responses = self.client.simGetImages(
+                        [
+                            airsim.ImageRequest(
+                                "0",
+                                airsim.ImageType.DepthPerspective,
+                                pixels_as_float=True,
+                                compress=False,
+                            )
+                        ]
+                    )
 
-            for angle in angles:
-                # Rotate drone
-                self.client.rotateToYawAsync(angle, 2).join()
-                time.sleep(0.5)
-
-                # Capture depth image
-                responses = self.client.simGetImages(
-                    [
-                        airsim.ImageRequest(
-                            "0",
-                            airsim.ImageType.DepthPerspective,
-                            pixels_as_float=True,
-                            compress=False,
-                        )
-                    ]
-                )
-
-                if responses:
-                    depth_img = airsim.get_pfm_array(responses[0])
-                    # Store with scan height info
-                    all_depth_data.append((angle, depth_img, scan_height))
+                    if responses:
+                        depth_img = airsim.get_pfm_array(responses[0])
+                        all_depth_data.append((angle, depth_img, scan_height, x, y))
+                        total_scans += 1
+                
+                # Progress update per position
+                print(f"      ✓ Captured 24 angles from position ({x:.0f}, {y:.0f})")
         
-        print(f"\n✅ Captured {len(all_depth_data)} depth images from {len(scan_heights)} heights")
+        print(f"\n{'='*60}")
+        print(f"✅ SCAN COMPLETE: {total_scans} depth images captured")
+        print(f"   📊 Breakdown: {len(scan_heights)} floors × {len(scan_positions_per_floor)} positions × 24 angles")
+        print(f"{'='*60}")
 
         # Process all depth data to extract obstacles
         self._process_depth_scans(all_depth_data, scan_radius)
@@ -90,13 +124,23 @@ class BuildingMapper:
 
     def _process_depth_scans(self, depth_data, scan_radius):
         """
-        Convert depth images to 3D point cloud.
+        Convert depth images to 3D point cloud with HIGH DENSITY sampling.
         
         Args:
-            depth_data: List of (angle, depth_img, scan_height) tuples
+            depth_data: List of (angle, depth_img, scan_height, scan_x, scan_y) tuples
             scan_radius: Maximum depth range to consider
         """
-        for angle, depth_img, scan_height in depth_data:
+        print(f"\n🔄 Processing {len(depth_data)} depth scans into 3D point cloud...")
+        points_added = 0
+        
+        for scan_data in depth_data:
+            # Handle both old format (3 items) and new format (5 items)
+            if len(scan_data) == 3:
+                angle, depth_img, scan_height = scan_data
+                scan_x, scan_y = -60, 30  # Default center
+            else:
+                angle, depth_img, scan_height, scan_x, scan_y = scan_data
+            
             if depth_img is None or depth_img.size == 0:
                 continue
 
@@ -106,8 +150,8 @@ class BuildingMapper:
             fx = fy = w / (2 * np.tan(np.deg2rad(90) / 2))
             cx, cy = w / 2, h / 2
 
-            # Sample points (use every Nth pixel to reduce computation)
-            step = 10
+            # DENSE SAMPLING: Step=5 instead of 10 for 4x more points
+            step = 5
             for i in range(0, h, step):
                 for j in range(0, w, step):
                     depth = depth_img[i, j]
@@ -121,14 +165,16 @@ class BuildingMapper:
                     y_cam = (i - cy) * depth / fy
                     z_cam = depth
 
-                    # Rotate to world frame based on drone orientation
+                    # Rotate to world frame based on drone orientation and scan position
                     angle_rad = np.deg2rad(angle)
-                    # Coordinates relative to scan center at (-60, 30)
-                    x_world = -60 + z_cam * np.cos(angle_rad) - x_cam * np.sin(angle_rad)
-                    y_world = 30 + z_cam * np.sin(angle_rad) + x_cam * np.cos(angle_rad)
+                    x_world = scan_x + z_cam * np.cos(angle_rad) - x_cam * np.sin(angle_rad)
+                    y_world = scan_y + z_cam * np.sin(angle_rad) + x_cam * np.cos(angle_rad)
                     z_world = -scan_height - y_cam
 
                     self.static_obstacles.append([x_world, y_world, z_world])
+                    points_added += 1
+        
+        print(f"✅ Extracted {points_added:,} 3D points from depth scans")
 
     def _detect_floors(self):
         """Detect floor levels from obstacle point cloud"""
@@ -518,22 +564,32 @@ def main():
     """Generate map from AirSim environment"""
     
     print("=" * 60)
-    print("🗺️  AirSim Map Generator for Baseline Algorithms")
+    print("🗺️  AirSim ULTRA-DENSE Map Generator")
+    print("   🚀 TELEPORT MODE: Safe + Instant")
+    print("   📊 STRATEGY: Dense grid per floor")
     print("=" * 60)
     
-    # Create map generator
-    # OPTIMIZED: Use 1.0m resolution for faster A* planning
-    # This reduces grid size by 8x (0.5m → 1.0m = 2^3)
-    # Trade-off: Slightly less detailed map, but A* is 20-50x faster
+    # OPTIMIZED: 1.0m resolution for A* speed
     generator = MapGenerator(resolution=1.0)
     
     try:
-        # Generate map from AirSim with multi-height scanning
-        # Scan at 5 different heights: 3m, 9m, 15m, 21m, 27m
-        # OPTIMIZED: Reduced scan_radius to 60m for smaller grid
+        # ULTRA-DENSE FLOOR SCANNING:
+        # - 5 floors (every 6m)
+        # - 9 XY positions per floor (3x3 grid)
+        # - 24 angles per position (every 15°)
+        # - Pixel step=5 (4x denser)
+        # Total: 5 × 9 × 24 = 1,080 depth scans!
+        # Expected obstacles: 100K-200K points (10-20x more than before)
+        print("\n📊 Scanning Configuration:")
+        print("   Floors: 5 (3m, 9m, 15m, 21m, 27m)")
+        print("   Positions/floor: 9 (3×3 grid coverage)")
+        print("   Angles/position: 24 (15° intervals)")
+        print("   Total scans: 1,080")
+        print("   Expected map quality: ULTRA-HIGH\n")
+        
         _grid = generator.generate_map(
-            scan_heights=[3, 9, 15, 21, 27],
-            scan_radius=60  # Reduced from 80m for faster processing
+            scan_heights=[3, 9, 15, 21, 27],  # 5 floors
+            scan_radius=60
         )
         
         # Export map

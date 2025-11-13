@@ -19,11 +19,13 @@ sys.path.insert(0, str(project_root))
 
 from src.baselines.astar_baseline.astar_controller import AStarController
 from src.baselines.astar_baseline.pid_controller import PIDController
+from src.baselines.astar_baseline.hierarchical_planner import HierarchicalPlanner
 
 
 class AStarPathVisualizer:
     """
     Visualizes A* paths in Unreal Engine using actual spawn points and landing targets.
+    Uses hierarchical planning for efficient multi-floor navigation.
     """
     
     def __init__(self, map_file: str, config: Dict[str, Any]):
@@ -40,6 +42,7 @@ class AStarPathVisualizer:
         
         # Controllers
         self.astar_controller = AStarController(config, map_file=map_file)
+        self.hierarchical_planner = HierarchicalPlanner(self.astar_controller)  # NEW
         self.pid_controller = PIDController(config)
         
         # Target positions (loaded from UE)
@@ -94,8 +97,8 @@ class AStarPathVisualizer:
         loaded_count = 0
         failed_count = 0
         
-        # Safety offset: fly 90cm above landing pad to avoid collision with pillar
-        safety_offset_z = -0.9  # -0.9m in NED coordinates (negative = up)
+        # Safety offset: fly 1.2m above landing pad to avoid collision with pillar
+        safety_offset_z = -1.2  # -1.2m in NED coordinates (negative = up)
         
         for target_id in targets_per_floor:
             target_name = f"Landing_{target_id}"
@@ -116,7 +119,7 @@ class AStarPathVisualizer:
         
         print(f"\n📊 Actor Loading Summary:")
         print(f"   ✅ Successfully loaded: {loaded_count} landing targets")
-        print(f"   🛡️  Safety offset applied: +90cm above each landing pad")
+        print(f"   🛡️  Safety offset applied: +1.2m above each landing pad")
         if failed_count > 0:
             print(f"   ⚠️  Failed to load: {failed_count} targets")
             print(f"   💡 Make sure Landing_XXX actors exist in your UE scene")
@@ -409,14 +412,35 @@ class AStarPathVisualizer:
         # ========================================
         # PHASE 1: A* Path Planning
         # ========================================
-        print("\n🗺️  Planning path with A*...")
+        print("\n🗺️  Planning path with hierarchical A*...")
         start_time = time.time()
         
         # Use actual airborne position as A* start point
         mission_start_pos = self.actual_start_position if self.actual_start_position else self.spawn_position
-        path = self.astar_controller.plan_path(mission_start_pos, goal_position)
+        path = self.hierarchical_planner.plan_path(mission_start_pos, goal_position)
         
         planning_time = time.time() - start_time
+        
+        # CRITICAL: Reset drone position after planning
+        # During A* search (especially long searches), drone drifts down due to gravity
+        print(f"\n📍 Resetting drone position (compensate for drift during planning)...")
+        self.client.simSetVehiclePose(
+            airsim.Pose(
+                airsim.Vector3r(
+                    mission_start_pos[0],
+                    mission_start_pos[1],
+                    mission_start_pos[2]
+                ),
+                airsim.Quaternionr(0, 0, 0, 1)
+            ),
+            True
+        )
+        time.sleep(0.5)  # Allow physics to stabilize
+        
+        # Verify position after reset
+        state = self.client.getMultirotorState()
+        actual_pos = state.kinematics_estimated.position
+        print(f"   Reset to: ({actual_pos.x_val:.2f}, {actual_pos.y_val:.2f}, {actual_pos.z_val:.2f})")
         
         if not path or len(path) == 0:
             print("❌ A* planning failed! No path found.")
@@ -580,6 +604,10 @@ class AStarPathVisualizer:
         }
         
         # Print results
+        battery_capacity = self.config.get('battery_capacity', 1.0)
+        battery_used_percent = (results['energy_consumed'] / battery_capacity) * 100
+        battery_remaining = battery_capacity - results['energy_consumed']
+        
         print(f"\n{'='*70}")
         print(f"📈 MISSION RESULTS")
         print(f"{'='*70}")
@@ -589,7 +617,8 @@ class AStarPathVisualizer:
         print(f"⏱️  Total time: {results['total_time']:.2f}s")
         print(f"🗺️  Path waypoints: {len(path)}")
         print(f"📏 Path length: {path_length:.2f} m")
-        print(f"⚡ Energy consumed: {results['energy_consumed']:.2f} kJ")
+        print(f"⚡ Energy consumed: {results['energy_consumed']:.2f} kJ ({battery_used_percent:.1f}% of battery)")
+        print(f"🔋 Battery remaining: {battery_remaining:.2f} kJ ({100-battery_used_percent:.1f}%)")
         print(f"🎯 ATE error: {ate_error:.3f} m")
         print(f"📍 Distance to goal: {final_distance:.3f} m")
         print(f"{'='*70}")
@@ -684,26 +713,32 @@ def main():
     
     # Configuration
     config = {
-        # A* parameters
+        # A* parameters (ULTRA-AGGRESSIVE for demo speed)
         'floor_penalty': 5.0,
+        'heuristic_weight': 5.0,  # Ultra-greedy A* for maximum speed (1.0=optimal, 3.0=ultra-fast)
         
-        # PID parameters
-        'position_kp': 2.0,
-        'position_ki': 0.1,
-        'position_kd': 0.5,
+        # PID parameters (PhD-level tuning for altitude stability)
+        'position_kp': 2.5,      # Increased for faster response
+        'position_ki': 0.5,      # 5x increase for better altitude hold (gravity compensation)
+        'position_kd': 0.8,      # Increased damping to reduce oscillation
         'yaw_kp': 1.5,
         'yaw_ki': 0.05,
         'yaw_kd': 0.3,
         'max_velocity': 5.0,
         'max_yaw_rate': 1.0,
-        'integral_limit': 10.0,
+        'integral_limit': 15.0,  # Increased for stronger integral action
+        
+        # Z-axis specific gains (critical for anti-gravity)
+        'z_feedforward': 9.81,   # Gravity compensation (m/s²)
+        'z_ki_boost': 2.0,       # Extra Ki multiplier for Z-axis only
         
         # Execution parameters
-        'control_dt': 0.05,
+        'control_dt': 0.02,      # 50Hz control (was 20Hz) for faster reaction
         'max_episode_time': 300.0,
         'goal_tolerance': 0.5,
         'waypoint_tolerance': 1.0,
-        'drone_mass': 1.5,
+        'drone_mass': 1.5,       # kg
+        'battery_capacity': 50.0, # 50x original capacity (kJ)
     }
     
     # Map file (must exist)
@@ -735,10 +770,10 @@ def main():
         # ========================================
         # OPTION 1: Single mission to specific target
         # ========================================
-        # Uncomment and specify target:
+        # Test hierarchical planner with previously slow target
         result = visualizer.run_mission(
             start_name="DroneSpawn",
-            target_name="Landing_101",  # Specify your target
+            target_name="Landing_103",  # Was taking 65+ seconds with direct A*
             visualize=True
         )
         
