@@ -1,9 +1,3 @@
-"""
-ROS2 Bridge
-Manages ROS2 integration for SLAM data exchange and system coordination.
-Connects with ORB-SLAM3 ROS2 nodes from old report setup.
-"""
-
 import numpy as np
 import logging
 from typing import Dict, List, Tuple, Optional, Any, Callable
@@ -11,16 +5,12 @@ from dataclasses import dataclass
 import threading
 import time
 
-# ============================================
-# TRY IMPORT ROS2 PACKAGES (OPTIONAL)
-# ============================================
 ROS2_AVAILABLE = False
 try:
     import rclpy
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
-    # ROS2 message types
     from geometry_msgs.msg import PoseStamped, TwistStamped, Vector3Stamped
     from sensor_msgs.msg import Image, Imu, PointCloud2, CompressedImage
     from nav_msgs.msg import Path, OccupancyGrid
@@ -34,9 +24,7 @@ try:
 
 except ImportError as e:
     logging.warning(f"ROS2 not available - ROS bridge disabled: {e}")
-    # Create dummy base class
     Node = object
-    # Create dummy types to prevent NameError
     PoseStamped = None
     TwistStamped = None
     Vector3Stamped = None
@@ -50,8 +38,6 @@ except ImportError as e:
     Float32 = None
     Bool = None
 
-
-# CV bridge for image conversion
 CV_BRIDGE_AVAILABLE = False
 CvBridge = None
 try:
@@ -62,74 +48,37 @@ try:
 except ImportError as e:
     logging.warning(f"cv_bridge not available - image processing disabled: {e}")
 
-
-# ============================================
-# DATA CLASSES
-# ============================================
-
-
-@dataclass
+dataclass
 class SLAMPose:
-    """SLAM pose estimate."""
 
     position: Tuple[float, float, float]
-    orientation: Tuple[float, float, float, float]  # quaternion
+    orientation: Tuple[float, float, float, float]
     covariance: Optional[np.ndarray] = None
     timestamp: float = 0.0
 
-
-@dataclass
+dataclass
 class ROSTopics:
-    """ROS topic names configuration."""
 
-    # Camera topics
     stereo_left: str = "/airsim_node/Drone0/front_left/Image"
     stereo_right: str = "/airsim_node/Drone0/front_right/Image"
 
-    # IMU topic
     imu: str = "/airsim_node/Drone0/Imu"
 
-    # SLAM output topics
     slam_pose: str = "/slam/pose"
     slam_map_points: str = "/slam/map_points"
     slam_trajectory: str = "/slam/trajectory"
     slam_ate: str = "/slam/ate"
 
-    # Control topics
     velocity_command: str = "/drone/cmd_vel"
     goal_pose: str = "/drone/goal"
 
-    # Status topics
     battery: str = "/drone/battery"
     collision: str = "/drone/collision"
 
-
-# ============================================
-# ROS BRIDGE CLASS
-# ============================================
-
-
 class ROSBridge(Node if ROS2_AVAILABLE else object):
-    """
-    ROS2 bridge for SLAM and sensor data integration.
-
-    **NOTE**: This bridge requires ROS2 to be installed and properly configured.
-    If ROS2 is not available, the bridge will be disabled.
-
-    Features:
-    - Publishes sensor data (stereo images, IMU) to ROS2 topics
-    - Subscribes to SLAM output (pose, map points, trajectory)
-    - Manages coordinate frame transformations
-    - Provides ROS2 visualization support
-    """
 
     def __init__(self, config: Dict[str, Any]):
-        """
-        Initialize ROS2 Bridge.
 
-        Args:
-            config: Configuration dictionary with ROS settings
-        """
         if not ROS2_AVAILABLE:
             logging.warning(
                 "ROSBridge initialized but ROS2 not available. "
@@ -139,19 +88,16 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
             self.config = config
             return
 
-        # Initialize ROS2 Node
         super().__init__("drone_delivery_bridge")
         self.config = config
         self.logger = self.get_logger()
         self.enabled = True
 
-        # Topic configuration
         self.topics = ROSTopics()
         if "topics" in config:
             for key, value in config["topics"].items():
                 setattr(self.topics, key, value)
 
-        # QoS profiles
         self.sensor_qos = QoSProfile(
             reliability=QoSReliabilityPolicy.BEST_EFFORT,
             history=QoSHistoryPolicy.KEEP_LAST,
@@ -164,46 +110,39 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
             depth=1,
         )
 
-        # Initialize CV bridge if available
         self.cv_bridge = CvBridge() if CV_BRIDGE_AVAILABLE else None
 
-        # Data storage
         self.latest_slam_pose: Optional[SLAMPose] = None
         self.latest_map_points: Optional[np.ndarray] = None
         self.slam_trajectory: List[SLAMPose] = []
         self.latest_ate: float = 0.0
 
-        # Callbacks
         self.pose_callbacks: List[Callable[[SLAMPose], None]] = []
         self.map_callbacks: List[Callable[[np.ndarray], None]] = []
 
-        # Threading
         self.ros_thread: Optional[threading.Thread] = None
         self.is_running = False
 
-        # Initialize publishers and subscribers
         self._setup_publishers()
         self._setup_subscribers()
 
-        # Transform handling
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.tf_broadcaster = TransformBroadcaster(self)
 
         self.logger.info("ROS2 Bridge initialized successfully")
 
-    def _check_enabled(self) -> bool:
-        """Check if bridge is enabled."""
+    def _check_enabled(self) - bool:
+
         if not self.enabled:
             logging.debug("ROS2 bridge operation skipped - not enabled")
         return self.enabled
 
     def _setup_publishers(self):
-        """Setup ROS2 publishers."""
+
         if not self._check_enabled():
             return
 
-        # Camera image publishers
         self.stereo_left_pub = self.create_publisher(
             Image, self.topics.stereo_left, self.sensor_qos
         )
@@ -211,10 +150,8 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
             Image, self.topics.stereo_right, self.sensor_qos
         )
 
-        # IMU publisher
         self.imu_pub = self.create_publisher(Imu, self.topics.imu, self.sensor_qos)
 
-        # Command publishers
         self.velocity_pub = self.create_publisher(
             TwistStamped, self.topics.velocity_command, self.control_qos
         )
@@ -225,11 +162,10 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
         self.logger.info("ROS2 publishers created")
 
     def _setup_subscribers(self):
-        """Setup ROS2 subscribers."""
+
         if not self._check_enabled():
             return
 
-        # SLAM output subscribers
         self.slam_pose_sub = self.create_subscription(
             PoseStamped,
             self.topics.slam_pose,
@@ -258,11 +194,10 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
         self.logger.info("ROS2 subscribers created")
 
     def _slam_pose_callback(self, msg):
-        """Handle SLAM pose messages."""
+
         if not self._check_enabled():
             return
 
-        # Extract pose
         pose = SLAMPose(
             position=(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z),
             orientation=(
@@ -271,12 +206,11 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
                 msg.pose.orientation.z,
                 msg.pose.orientation.w,
             ),
-            timestamp=msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
+            timestamp=msg.header.stamp.sec + msg.header.stamp.nanosec  1e-9,
         )
 
         self.latest_slam_pose = pose
 
-        # Trigger callbacks
         for callback in self.pose_callbacks:
             try:
                 callback(pose)
@@ -284,27 +218,25 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
                 self.logger.error(f"Pose callback error: {e}")
 
     def _map_points_callback(self, msg):
-        """Handle SLAM map points messages."""
+
         if not self._check_enabled():
             return
-        # TODO: Parse PointCloud2 message
         pass
 
     def _trajectory_callback(self, msg):
-        """Handle SLAM trajectory messages."""
+
         if not self._check_enabled():
             return
-        # TODO: Parse Path message
         pass
 
     def _ate_callback(self, msg):
-        """Handle ATE messages."""
+
         if not self._check_enabled():
             return
         self.latest_ate = msg.data
 
     def start(self):
-        """Start ROS2 bridge in separate thread."""
+
         if not self._check_enabled():
             logging.warning("Cannot start ROS2 bridge - not enabled")
             return
@@ -319,12 +251,12 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
         self.logger.info("ROS2 bridge started")
 
     def _run_ros_spin(self):
-        """Run ROS2 spin in thread."""
+
         while self.is_running and ROS2_AVAILABLE:
             rclpy.spin_once(self, timeout_sec=0.01)
 
     def stop(self):
-        """Stop ROS2 bridge."""
+
         if not self.enabled:
             return
 
@@ -333,16 +265,16 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
             self.ros_thread.join(timeout=1.0)
         self.logger.info("ROS2 bridge stopped")
 
-    def get_slam_pose(self) -> Optional[SLAMPose]:
-        """Get latest SLAM pose estimate."""
+    def get_slam_pose(self) - Optional[SLAMPose]:
+
         return self.latest_slam_pose
 
-    def get_slam_ate(self) -> float:
-        """Get latest ATE."""
+    def get_slam_ate(self) - float:
+
         return self.latest_ate
 
     def publish_image(self, image: np.ndarray, topic: str = "left"):
-        """Publish camera image to ROS2."""
+
         if not self._check_enabled() or not CV_BRIDGE_AVAILABLE:
             return
 
@@ -358,32 +290,17 @@ class ROSBridge(Node if ROS2_AVAILABLE else object):
             self.logger.error(f"Image publish error: {e}")
 
     def __del__(self):
-        """Cleanup on destruction."""
+
         if self.enabled:
             self.stop()
 
+def create_ros_bridge(config: Dict[str, Any]) - Optional[ROSBridge]:
 
-# ============================================
-# HELPER FUNCTIONS
-# ============================================
-
-
-def create_ros_bridge(config: Dict[str, Any]) -> Optional[ROSBridge]:
-    """
-    Create ROS bridge with proper error handling.
-
-    Args:
-        config: Configuration dictionary
-
-    Returns:
-        ROSBridge instance if ROS2 is available, None otherwise
-    """
     if not ROS2_AVAILABLE:
         logging.info("ROS2 not available - skipping bridge creation")
         return None
 
     try:
-        # Initialize rclpy if not already done
         if not rclpy.ok():
             rclpy.init()
 
@@ -392,7 +309,6 @@ def create_ros_bridge(config: Dict[str, Any]) -> Optional[ROSBridge]:
     except Exception as e:
         logging.error(f"Failed to create ROS bridge: {e}")
         return None
-
 
 __all__ = [
     "ROSBridge",

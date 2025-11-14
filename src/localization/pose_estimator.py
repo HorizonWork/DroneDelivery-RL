@@ -1,8 +1,3 @@
-"""
-Pose Estimator
-Core pose estimation algorithms for VI-SLAM.
-"""
-
 import numpy as np
 import cv2
 import logging
@@ -10,30 +5,22 @@ from typing import Dict, List, Tuple, Optional, Any
 from scipy.spatial.transform import Rotation as R
 from dataclasses import dataclass
 
-
-@dataclass
+dataclass
 class PoseEstimate:
-    """Pose estimation result."""
 
     position: np.ndarray
-    orientation: np.ndarray  # rotation matrix
+    orientation: np.ndarray
     confidence: float
     num_inliers: int
     reprojection_error: float
     timestamp: float
 
-
 class PoseEstimator:
-    """
-    Core pose estimation for visual-inertial SLAM.
-    Implements robust pose estimation with RANSAC and bundle adjustment.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-        # Camera parameters
         self.K = np.array(
             [
                 [config.get("fx", 460.0), 0, config.get("cx", 320.0)],
@@ -42,18 +29,15 @@ class PoseEstimator:
             ]
         )
 
-        self.baseline = config.get("baseline", 0.10)  # meters
+        self.baseline = config.get("baseline", 0.10)
 
-        # RANSAC parameters
         self.ransac_threshold = config.get("ransac_threshold", 1.0)
         self.ransac_confidence = config.get("ransac_confidence", 0.999)
         self.ransac_max_iters = config.get("ransac_max_iters", 1000)
 
-        # Pose estimation parameters
-        self.min_parallax = config.get("min_parallax", 1.0)  # degrees
+        self.min_parallax = config.get("min_parallax", 1.0)
         self.max_reprojection_error = config.get("max_reprojection_error", 2.0)
 
-        # Feature matching
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self.match_ratio_threshold = config.get("match_ratio_threshold", 0.8)
 
@@ -68,45 +52,29 @@ class PoseEstimator:
         kp_right: List,
         desc_right: np.ndarray,
         timestamp: float,
-    ) -> Optional[PoseEstimate]:
-        """
-        Estimate pose from stereo feature matches.
+    ) - Optional[PoseEstimate]:
 
-        Args:
-            kp_left, desc_left: Left image keypoints and descriptors
-            kp_right, desc_right: Right image keypoints and descriptors
-            timestamp: Frame timestamp
-
-        Returns:
-            Pose estimate or None if failed
-        """
         try:
-            # Match features between stereo images
             matches = self.matcher.match(desc_left, desc_right)
 
-            if len(matches) < 8:  # Need at least 8 points for essential matrix
+            if len(matches)  8:
                 return None
 
-            # Extract matched points
             pts_left = np.float32([kp_left[m.queryIdx].pt for m in matches])
             pts_right = np.float32([kp_right[m.trainIdx].pt for m in matches])
 
-            # Calculate disparities
             disparities = pts_left[:, 0] - pts_right[:, 0]
 
-            # Filter by positive disparity (valid stereo matches)
-            valid_disparity = disparities > 0.5
-            if np.sum(valid_disparity) < 8:
+            valid_disparity = disparities  0.5
+            if np.sum(valid_disparity)  8:
                 return None
 
             pts_left = pts_left[valid_disparity]
             pts_right = pts_right[valid_disparity]
             disparities = disparities[valid_disparity]
 
-            # Triangulate 3D points
             points_3d = self._triangulate_stereo_points(pts_left, pts_right)
 
-            # Estimate motion using PnP
             pose = self._estimate_motion_pnp(pts_left, points_3d, timestamp)
 
             return pose
@@ -117,31 +85,20 @@ class PoseEstimator:
 
     def _triangulate_stereo_points(
         self, pts_left: np.ndarray, pts_right: np.ndarray
-    ) -> np.ndarray:
-        """
-        Triangulate 3D points from stereo correspondences.
+    ) - np.ndarray:
 
-        Args:
-            pts_left: Left image points
-            pts_right: Right image points
-
-        Returns:
-            3D points in camera coordinate system
-        """
         points_3d = []
 
         for i in range(len(pts_left)):
             xl, yl = pts_left[i]
             xr, yr = pts_right[i]
 
-            # Disparity
             d = xl - xr
 
-            if d > 0.5:  # Valid disparity
-                # Triangulate using stereo geometry
-                Z = self.K[0, 0] * self.baseline / d  # Depth
-                X = (xl - self.K[0, 2]) * Z / self.K[0, 0]  # X coordinate
-                Y = (yl - self.K[1, 2]) * Z / self.K[1, 1]  # Y coordinate
+            if d  0.5:
+                Z = self.K[0, 0]  self.baseline / d
+                X = (xl - self.K[0, 2])  Z / self.K[0, 0]
+                Y = (yl - self.K[1, 2])  Z / self.K[1, 1]
 
                 points_3d.append([X, Y, Z])
 
@@ -149,40 +106,27 @@ class PoseEstimator:
 
     def _estimate_motion_pnp(
         self, image_points: np.ndarray, world_points: np.ndarray, timestamp: float
-    ) -> Optional[PoseEstimate]:
-        """
-        Estimate camera pose using PnP with RANSAC.
+    ) - Optional[PoseEstimate]:
 
-        Args:
-            image_points: 2D image points
-            world_points: Corresponding 3D world points
-            timestamp: Frame timestamp
-
-        Returns:
-            Pose estimate or None
-        """
-        if len(image_points) != len(world_points) or len(image_points) < 6:
+        if len(image_points) != len(world_points) or len(image_points)  6:
             return None
 
         try:
-            # Solve PnP with RANSAC
             success, rvec, tvec, inliers = cv2.solvePnPRansac(
                 world_points.astype(np.float32),
                 image_points.astype(np.float32),
                 self.K,
-                None,  # No distortion
+                None,
                 reprojectionError=self.ransac_threshold,
                 confidence=self.ransac_confidence,
                 iterationsCount=self.ransac_max_iters,
             )
 
-            if not success or inliers is None or len(inliers) < 6:
+            if not success or inliers is None or len(inliers)  6:
                 return None
 
-            # Convert rotation vector to matrix
             R_mat, _ = cv2.Rodrigues(rvec)
 
-            # Calculate reprojection error
             projected_points, _ = cv2.projectPoints(
                 world_points[inliers.flatten()], rvec, tvec, self.K, None
             )
@@ -192,7 +136,6 @@ class PoseEstimator:
             )
             mean_reprojection_error = np.mean(reprojection_errors)
 
-            # Calculate confidence based on inliers ratio
             confidence = len(inliers) / len(image_points)
 
             pose_estimate = PoseEstimate(
@@ -212,34 +155,30 @@ class PoseEstimator:
 
     def ned_to_enu(
         self, ned_pos: Tuple[float, float, float]
-    ) -> Tuple[float, float, float]:
-        """Convert NED to ENU coordinates."""
+    ) - Tuple[float, float, float]:
+
         n, e, d = ned_pos
         return (e, n, -d)
 
     def enu_to_ned(
         self, enu_pos: Tuple[float, float, float]
-    ) -> Tuple[float, float, float]:
-        """Convert ENU to NED coordinates."""
+    ) - Tuple[float, float, float]:
+
         e, n, u = enu_pos
         return (n, e, -u)
 
     def quaternion_ned_to_enu(
         self, quat_ned: Tuple[float, float, float, float]
-    ) -> Tuple[float, float, float, float]:
-        """Convert quaternion from NED to ENU frame."""
-        # NED to ENU rotation: 90° about Z, then 180° about X
+    ) - Tuple[float, float, float, float]:
+
         w, x, y, z = quat_ned
 
-        # Apply coordinate transformation
-        # This is simplified - full implementation would use proper quaternion composition
         rotation = R.from_quat([x, y, z, w])
 
-        # Convert to ENU frame
         ned_to_enu_rot = R.from_euler("zx", [np.pi / 2, np.pi])
-        enu_rotation = ned_to_enu_rot * rotation
+        enu_rotation = ned_to_enu_rot  rotation
 
-        enu_quat = enu_rotation.as_quat()  # [x, y, z, w]
+        enu_quat = enu_rotation.as_quat()
         return (
             float(enu_quat[3]),
             float(enu_quat[0]),

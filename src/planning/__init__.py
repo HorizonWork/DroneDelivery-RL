@@ -1,16 +1,9 @@
-"""
-Path Planning Module for DroneDelivery-RL
-Hierarchical planning system with global A* and local S-RRT.
-"""
-
 import logging
 from typing import Dict, List, Tuple, Optional, Any
 
-# Module-level availability checks
 _PLANNING_AVAILABLE = True
 _IMPORT_ERRORS = []
 
-# Global Planner
 AStarPlanner = None
 OccupancyGrid = None
 Heuristics = None
@@ -24,7 +17,6 @@ try:
 except ImportError as e:
     _IMPORT_ERRORS.append(f"global_planner: {e}")
 
-# Local Planner
 SRRTPlanner = None
 CostFunctions = None
 DynamicObstacleHandler = None
@@ -38,7 +30,6 @@ try:
 except ImportError as e:
     _IMPORT_ERRORS.append(f"local_planner: {e}")
 
-# Integration
 PlannerManager = None
 PathSmoother = None
 ExecutionMonitor = None
@@ -50,13 +41,11 @@ try:
 except ImportError as e:
     _IMPORT_ERRORS.append(f"integration: {e}")
 
-# Log any import errors
 if _IMPORT_ERRORS:
     logger = logging.getLogger(__name__)
     logger.warning(f"Planning module partial import: {len(_IMPORT_ERRORS)} errors")
     for error in _IMPORT_ERRORS:
         logger.debug(f"  - {error}")
-
 
 __all__ = [
     "AStarPlanner",

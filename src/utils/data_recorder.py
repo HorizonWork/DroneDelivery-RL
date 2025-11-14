@@ -1,9 +1,3 @@
-"""
-Data Recorder
-Flight data recording and logging for analysis and debugging.
-Records trajectories, sensor data, and system metrics.
-"""
-
 import numpy as np
 import logging
 import time
@@ -16,56 +10,43 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 import threading
 
-
-@dataclass
+dataclass
 class FlightRecord:
-    """Single flight data record."""
 
     timestamp: float
-    position: np.ndarray  # [x, y, z] world coordinates
-    velocity: np.ndarray  # [vx, vy, vz] world frame
-    orientation: np.ndarray  # [qx, qy, qz, qw] quaternion
-    angular_velocity: np.ndarray  # [wx, wy, wz] body frame
-    action: np.ndarray  # [vx_cmd, vy_cmd, vz_cmd, yaw_rate_cmd]
-    energy_consumption: float  # Joules
-    reward: float  # RL reward
-    slam_pose: np.ndarray  # VI-SLAM pose estimate
-    ate_error: float  # Absolute trajectory error
-
+    position: np.ndarray
+    velocity: np.ndarray
+    orientation: np.ndarray
+    angular_velocity: np.ndarray
+    action: np.ndarray
+    energy_consumption: float
+    reward: float
+    slam_pose: np.ndarray
+    ate_error: float
 
 class DataRecorder:
-    """
-    High-performance flight data recorder.
-    Records all system data for post-flight analysis and debugging.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-        # Recording configuration
         self.output_dir = Path(config.get("output_dir", "recorded_data"))
-        self.recording_frequency = config.get("frequency", 20.0)  # Hz
-        self.buffer_size = config.get("buffer_size", 10000)  # samples
-        self.auto_save_interval = config.get("auto_save_interval", 300.0)  # seconds
+        self.recording_frequency = config.get("frequency", 20.0)
+        self.buffer_size = config.get("buffer_size", 10000)
+        self.auto_save_interval = config.get("auto_save_interval", 300.0)
 
-        # Data format options
-        self.save_formats = config.get("formats", ["hdf5", "csv"])  # hdf5, csv, json
+        self.save_formats = config.get("formats", ["hdf5", "csv"])
         self.compression = config.get("compression", True)
 
-        # Recording state
         self.is_recording = False
         self.recording_session_id = None
 
-        # Data buffers
         self.flight_data_buffer: List[FlightRecord] = []
         self.system_metrics_buffer: List[Dict[str, Any]] = []
 
-        # Threading for non-blocking saves
         self.save_thread: Optional[threading.Thread] = None
         self.save_lock = threading.Lock()
 
-        # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info("Data Recorder initialized")
@@ -73,20 +54,18 @@ class DataRecorder:
         self.logger.info(f"Recording frequency: {self.recording_frequency}Hz")
 
     def start_recording(self, session_id: Optional[str] = None):
-        """Start data recording session."""
+
         if self.is_recording:
             self.logger.warning("Recording already in progress")
             return
 
-        # Generate session ID
         if session_id is None:
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            timestamp = time.strftime("Ymd_HMS")
             session_id = f"flight_session_{timestamp}"
 
         self.recording_session_id = session_id
         self.is_recording = True
 
-        # Clear buffers
         self.flight_data_buffer.clear()
         self.system_metrics_buffer.clear()
 
@@ -104,7 +83,7 @@ class DataRecorder:
         slam_pose: np.ndarray,
         ate_error: float,
     ):
-        """Record single flight data sample."""
+
         if not self.is_recording:
             return
 
@@ -124,37 +103,29 @@ class DataRecorder:
         with self.save_lock:
             self.flight_data_buffer.append(record)
 
-            # Auto-save if buffer full
-            if len(self.flight_data_buffer) >= self.buffer_size:
+            if len(self.flight_data_buffer) = self.buffer_size:
                 self._async_save_buffer()
 
     def record_system_metrics(self, metrics: Dict[str, Any]):
-        """Record system-level metrics."""
+
         if not self.is_recording:
             return
 
-        metric_record = {"timestamp": time.time(), **metrics}
+        metric_record = {"timestamp": time.time(), metrics}
 
         with self.save_lock:
             self.system_metrics_buffer.append(metric_record)
 
-    def stop_recording(self) -> str:
-        """
-        Stop recording and save final data.
+    def stop_recording(self) - str:
 
-        Returns:
-            Path to saved data directory
-        """
         if not self.is_recording:
             self.logger.warning("No recording in progress")
             return ""
 
         self.is_recording = False
 
-        # Save remaining buffer data
         self._save_all_data()
 
-        # Wait for any ongoing save operations
         if self.save_thread and self.save_thread.is_alive():
             self.save_thread.join()
 
@@ -169,19 +140,16 @@ class DataRecorder:
         return str(session_dir)
 
     def _async_save_buffer(self):
-        """Asynchronously save buffer data."""
-        if self.save_thread and self.save_thread.is_alive():
-            return  # Previous save still in progress
 
-        # Create copy of buffer data for saving
+        if self.save_thread and self.save_thread.is_alive():
+            return
+
         flight_data_copy = self.flight_data_buffer.copy()
         metrics_data_copy = self.system_metrics_buffer.copy()
 
-        # Clear buffers
         self.flight_data_buffer.clear()
         self.system_metrics_buffer.clear()
 
-        # Start save thread
         self.save_thread = threading.Thread(
             target=self._save_data_batch,
             args=(flight_data_copy, metrics_data_copy),
@@ -192,16 +160,15 @@ class DataRecorder:
     def _save_data_batch(
         self, flight_data: List[FlightRecord], metrics_data: List[Dict[str, Any]]
     ):
-        """Save batch of data (runs in separate thread)."""
+
         if not flight_data and not metrics_data:
             return
 
         session_dir = self.output_dir / self.recording_session_id
         session_dir.mkdir(exist_ok=True)
 
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        timestamp = time.strftime("Ymd_HMS")
 
-        # Save in requested formats
         if "hdf5" in self.save_formats:
             self._save_hdf5(
                 flight_data, metrics_data, session_dir / f"batch_{timestamp}.h5"
@@ -219,14 +186,12 @@ class DataRecorder:
         metrics_data: List[Dict[str, Any]],
         filepath: Path,
     ):
-        """Save data in HDF5 format."""
+
         try:
             with h5py.File(filepath, "w") as f:
-                # Flight data group
                 if flight_data:
                     flight_group = f.create_group("flight_data")
 
-                    # Create datasets
                     n_samples = len(flight_data)
 
                     flight_group.create_dataset(
@@ -285,15 +250,12 @@ class DataRecorder:
                         data=[r.ate_error for r in flight_data],
                     )
 
-                # System metrics group
                 if metrics_data:
                     metrics_group = f.create_group("system_metrics")
 
-                    # Convert metrics to arrays
                     timestamps = [m["timestamp"] for m in metrics_data]
                     metrics_group.create_dataset("timestamps", data=timestamps)
 
-                    # Store each metric type
                     for key in metrics_data[0].keys():
                         if key != "timestamp":
                             try:
@@ -306,7 +268,7 @@ class DataRecorder:
             self.logger.error(f"Failed to save HDF5 data: {e}")
 
     def _save_csv(self, flight_data: List[FlightRecord], filepath: Path):
-        """Save flight data in CSV format."""
+
         if not flight_data:
             return
 
@@ -370,7 +332,7 @@ class DataRecorder:
             self.logger.error(f"Failed to save CSV data: {e}")
 
     def _save_json(self, metrics_data: List[Dict[str, Any]], filepath: Path):
-        """Save metrics in JSON format."""
+
         try:
             with open(filepath, "w") as f:
                 json.dump(metrics_data, f, indent=2, default=str)
@@ -378,12 +340,12 @@ class DataRecorder:
             self.logger.error(f"Failed to save JSON data: {e}")
 
     def _save_all_data(self):
-        """Save all remaining buffer data."""
+
         if self.flight_data_buffer or self.system_metrics_buffer:
             self._save_data_batch(self.flight_data_buffer, self.system_metrics_buffer)
 
     def record_episode(self, data: dict):
-        """Record episode data."""
+
         try:
             import time
 
@@ -399,52 +361,42 @@ class DataRecorder:
             if not hasattr(self, "episodes"):
                 self.episodes = []
             self.episodes.append(episode_data)
-            if episode_data["episode"] % 10 == 0:
+            if episode_data["episode"]  10 == 0:
                 print(
                     f"Episode {episode_data['episode']}: Reward={episode_data['total_reward']:.2f}, Steps={episode_data['steps']}"
                 )
         except Exception as e:
             print(f"Error recording episode: {e}")
 
-
 class FlightDataLogger:
-    """
-    Specialized logger for flight test data.
-    Optimized for real-time logging during flight operations.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-        # Output configuration
         self.log_dir = Path(config.get("log_dir", "flight_logs"))
-        self.max_file_size = config.get("max_file_size_mb", 100) * 1024 * 1024  # bytes
+        self.max_file_size = config.get("max_file_size_mb", 100)  1024  1024
         self.max_log_files = config.get("max_log_files", 10)
 
-        # Current log file
         self.current_log_file = None
         self.current_file_size = 0
 
-        # Create log directory
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info("Flight Data Logger initialized")
 
     def log_flight_event(self, event_type: str, data: Dict[str, Any]):
-        """Log flight event with timestamp."""
+
         log_entry = {"timestamp": time.time(), "event_type": event_type, "data": data}
 
         self._write_log_entry(log_entry)
 
     def _write_log_entry(self, entry: Dict[str, Any]):
-        """Write log entry to file."""
-        # Check if need new log file
-        if self.current_log_file is None or self.current_file_size > self.max_file_size:
+
+        if self.current_log_file is None or self.current_file_size  self.max_file_size:
             self._create_new_log_file()
 
         try:
-            # Write entry
             json_line = json.dumps(entry, default=str) + "\n"
             self.current_log_file.write(json_line)
             self.current_log_file.flush()
@@ -455,30 +407,26 @@ class FlightDataLogger:
             self.logger.error(f"Failed to write log entry: {e}")
 
     def _create_new_log_file(self):
-        """Create new log file."""
-        # Close current file
+
         if self.current_log_file:
             self.current_log_file.close()
 
-        # Generate filename
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        timestamp = time.strftime("Ymd_HMS")
         log_filename = f"flight_log_{timestamp}.jsonl"
         log_path = self.log_dir / log_filename
 
-        # Open new file
         self.current_log_file = open(log_path, "w")
         self.current_file_size = 0
 
-        # Cleanup old files
         self._cleanup_old_logs()
 
         self.logger.info(f"Created new log file: {log_filename}")
 
     def _cleanup_old_logs(self):
-        """Remove old log files."""
-        log_files = sorted(self.log_dir.glob("flight_log_*.jsonl"))
 
-        if len(log_files) > self.max_log_files:
+        log_files = sorted(self.log_dir.glob("flight_log_.jsonl"))
+
+        if len(log_files)  self.max_log_files:
             for old_file in log_files[: -self.max_log_files]:
                 try:
                     old_file.unlink()
@@ -487,7 +435,7 @@ class FlightDataLogger:
                     self.logger.warning(f"Failed to remove old log: {e}")
 
     def close(self):
-        """Close current log file."""
+
         if self.current_log_file:
             self.current_log_file.close()
             self.current_log_file = None

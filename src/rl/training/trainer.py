@@ -1,9 +1,3 @@
-"""
-Main PPO Trainer
-Core training loop with 5 million steps as specified in Section 5.2.
-Implements exact training procedure from report.
-"""
-
 import torch
 import numpy as np
 import logging
@@ -15,7 +9,6 @@ from collections import deque
 from pathlib import Path
 import json
 
-# Try wandb import (optional)
 try:
     import wandb
 
@@ -27,30 +20,24 @@ except ImportError:
 from src.rl.agents.ppo_agent import PPOAgent
 from src.rl.evaluation.evaluator import DroneEvaluator
 
-
-@dataclass
+dataclass
 class TrainingConfig:
-    """Training configuration matching Section 5.2."""
 
-    total_timesteps: int = 5_000_000  # 5M steps as per report
-    eval_frequency: int = 50_000  # Evaluate every 50k steps
-    save_frequency: int = 100_000  # Save model every 100k steps
-    log_frequency: int = 1000  # Log every 1k steps
+    total_timesteps: int = 5_000_000
+    eval_frequency: int = 50_000
+    save_frequency: int = 100_000
+    log_frequency: int = 1000
 
-    # Early stopping
-    early_stopping_patience: int = 500_000  # Stop if no improvement for 500k steps
-    target_success_rate: float = 0.96  # 96% success rate target
+    early_stopping_patience: int = 500_000
+    target_success_rate: float = 0.96
 
-    # Checkpointing
     checkpoint_dir: str = "checkpoints"
     experiment_name: str = "ppo_energy_aware"
     resume_from_checkpoint: bool = False
     checkpoint_path: str = ""
 
-
-@dataclass
+dataclass
 class TrainingState:
-    """Current training state."""
 
     timestep: int = 0
     episode: int = 0
@@ -60,28 +47,20 @@ class TrainingState:
     current_lr: float = 3e-4
     training_start_time: float = 0.0
 
-
 class PPOTrainer:
-    """
-    Main PPO trainer implementing exact procedure from Section 5.2.
-    Supports curriculum learning and comprehensive monitoring.
-    """
 
     def __init__(self, agent: PPOAgent, environment, config: Dict[str, Any]):
         self.agent = agent
         self.environment = environment
-        self.training_config = TrainingConfig(**config.get("training", {}))
+        self.training_config = TrainingConfig(config.get("training", {}))
         self.logger = logging.getLogger(__name__)
 
-        # Training state
         self.state = TrainingState()
 
-        # Evaluator for periodic assessment
         evaluator_config = config.get("evaluation", {})
-        evaluator_config["num_episodes"] = 10  # Quick evaluation during training
+        evaluator_config["num_episodes"] = 10
         self.evaluator = DroneEvaluator(evaluator_config)
 
-        # Monitoring
         self.use_wandb = config.get("use_wandb", False) and WANDB_AVAILABLE
         self.training_metrics = {
             "episode_rewards": deque(maxlen=100),
@@ -92,11 +71,9 @@ class PPOTrainer:
             "value_losses": deque(maxlen=1000),
         }
 
-        # Callbacks
         self.episode_callbacks: List[Callable] = []
         self.update_callbacks: List[Callable] = []
 
-        # Setup directories
         self.checkpoint_dir = Path(self.training_config.checkpoint_dir)
         self.checkpoint_dir.mkdir(exist_ok=True, parents=True)
 
@@ -110,7 +87,7 @@ class PPOTrainer:
         )
 
     def _initialize_wandb(self, wandb_config: Dict[str, Any]):
-        """Initialize Weights & Biases logging."""
+
         try:
             wandb.init(
                 project=wandb_config.get("project", "drone-delivery-rl"),
@@ -130,67 +107,50 @@ class PPOTrainer:
             self.logger.warning(f"Failed to initialize wandb: {e}")
             self.use_wandb = False
 
-    def train(self) -> Dict[str, Any]:
-        """
-        Execute complete training procedure.
+    def train(self) - Dict[str, Any]:
 
-        Returns:
-            Training results dictionary
-        """
         self.logger.info("Starting PPO training")
         self.logger.info(f"Environment: {self.environment}")
 
         self.state.training_start_time = time.time()
 
-        # Resume from checkpoint if specified
         if (
             self.training_config.resume_from_checkpoint
             and self.training_config.checkpoint_path
         ):
             self._load_checkpoint(self.training_config.checkpoint_path)
 
-        # Training loop
-        while self.state.timestep < self.training_config.total_timesteps:
-            # Run episode
+        while self.state.timestep  self.training_config.total_timesteps:
             episode_result = self._run_training_episode()
 
-            # Update training state
             self.state.episode += 1
             self.state.timestep += episode_result["episode_length"]
 
-            # Record metrics
             self._record_episode_metrics(episode_result)
 
-            # Policy update when buffer is full
             if self.agent.is_ready_for_update():
                 update_result = self._perform_policy_update()
                 self._record_update_metrics(update_result)
 
-            # Periodic evaluation
             if (
-                self.state.timestep % self.training_config.eval_frequency == 0
-                or self.state.timestep >= self.training_config.total_timesteps
+                self.state.timestep  self.training_config.eval_frequency == 0
+                or self.state.timestep = self.training_config.total_timesteps
             ):
                 eval_result = self._periodic_evaluation()
                 self._check_early_stopping(eval_result)
 
-            # Periodic saving
-            if self.state.timestep % self.training_config.save_frequency == 0:
+            if self.state.timestep  self.training_config.save_frequency == 0:
                 self._save_checkpoint()
 
-            # Logging
-            if self.state.episode % self.training_config.log_frequency == 0:
+            if self.state.episode  self.training_config.log_frequency == 0:
                 self._log_training_progress()
 
-            # Early stopping check
             if self._should_stop_early():
                 self.logger.info("Early stopping triggered")
                 break
 
-        # Final evaluation
         final_evaluation = self._final_evaluation()
 
-        # Save final model
         self._save_final_model()
 
         training_time = time.time() - self.state.training_start_time
@@ -207,7 +167,7 @@ class PPOTrainer:
 
         self.logger.info(f"Training completed in {training_time/3600:.1f} hours")
         self.logger.info(
-            f"Final success rate: {final_evaluation.get('success_rate', 0):.1f}%"
+            f"Final success rate: {final_evaluation.get('success_rate', 0):.1f}"
         )
         self.logger.info(
             f"Final energy efficiency: {final_evaluation.get('energy_efficiency', 0):.0f}J"
@@ -218,14 +178,8 @@ class PPOTrainer:
 
         return results
 
-    def _run_training_episode(self) -> Dict[str, Any]:
-        """
-        Run single training episode.
+    def _run_training_episode(self) - Dict[str, Any]:
 
-        Returns:
-            Episode result dictionary
-        """
-        # Reset environment
         observation = self.environment.reset()
 
         episode_reward = 0.0
@@ -236,19 +190,15 @@ class PPOTrainer:
         done = False
 
         while not done:
-            # Select action
             action, log_prob = self.agent.select_action(observation)
             value = self.agent.evaluate_observation(observation)
 
-            # Execute action
             next_observation, reward, done, info = self.environment.step(action)
 
-            # Record experience
             self.agent.add_experience(
                 observation, action, reward, value, log_prob, done
             )
 
-            # Update episode metrics
             episode_reward += reward
             episode_length += 1
             episode_energy += info.get("energy_consumption", 0.0)
@@ -258,17 +208,15 @@ class PPOTrainer:
 
             observation = next_observation
 
-        # Track last observation for bootstrap value
         self.agent.last_observation = observation
 
-        # Final position check
         final_position = info.get("position", (0, 0, 0))
         goal_position = info.get("goal_position", (0, 0, 0))
         final_distance = np.linalg.norm(
             np.array(final_position) - np.array(goal_position)
         )
 
-        success = final_distance <= 0.5 and not collision_occurred  # 0.5m tolerance
+        success = final_distance = 0.5 and not collision_occurred
 
         return {
             "episode_reward": episode_reward,
@@ -280,28 +228,25 @@ class PPOTrainer:
             "info": info,
         }
 
-    def _perform_policy_update(self) -> Dict[str, float]:
-        """Perform PPO policy update."""
-        # Get final observation for bootstrap
+    def _perform_policy_update(self) - Dict[str, float]:
+
         final_obs = getattr(
             self.agent, "last_observation", np.zeros(self.agent.observation_dim)
         )
-        final_done = False  # Episode ongoing
+        final_done = False
 
-        # Update policy
         update_metrics = self.agent.update_policy(final_obs, final_done)
 
         return update_metrics
 
-    def _periodic_evaluation(self) -> Dict[str, Any]:
-        """Perform periodic evaluation during training."""
+    def _periodic_evaluation(self) - Dict[str, Any]:
+
         self.logger.info(f"Evaluating at timestep {self.state.timestep:,}")
 
-        # FIX: Use .policy attribute (as defined in PPOAgent)
-        self.agent.policy.eval()  # Set to evaluation mode
+        self.agent.policy.eval()
 
         evaluation_results = []
-        for _ in range(10):  # Quick 10-episode evaluation
+        for _ in range(10):
             obs = self.environment.reset()
             episode_reward = 0.0
             episode_energy = 0.0
@@ -313,20 +258,18 @@ class PPOTrainer:
                 episode_reward += reward
                 episode_energy += info.get("energy_consumption", 0.0)
 
-            # Check success
             final_pos = info.get("position", (0, 0, 0))
             goal_pos = info.get("goal_position", (0, 0, 0))
             final_dist = np.linalg.norm(np.array(final_pos) - np.array(goal_pos))
-            success = final_dist <= 0.5 and not info.get("collision", False)
+            success = final_dist = 0.5 and not info.get("collision", False)
 
             evaluation_results.append(
                 {"success": success, "energy": episode_energy, "reward": episode_reward}
             )
 
-        self.agent.policy.train()  # Back to training mode
+        self.agent.policy.train()
 
-        # Calculate evaluation metrics
-        success_rate = np.mean([r["success"] for r in evaluation_results]) * 100
+        success_rate = np.mean([r["success"] for r in evaluation_results])  100
         successful_episodes = [r for r in evaluation_results if r["success"]]
         avg_energy = (
             np.mean([r["energy"] for r in successful_episodes])
@@ -342,53 +285,49 @@ class PPOTrainer:
         }
 
         self.logger.info(
-            f"Evaluation: {success_rate:.1f}% success, {avg_energy:.0f}J energy"
+            f"Evaluation: {success_rate:.1f} success, {avg_energy:.0f}J energy"
         )
 
         return eval_summary
 
     def _check_early_stopping(self, eval_result: Dict[str, Any]):
-        """Check early stopping criteria."""
+
         success_rate = eval_result.get("success_rate", 0.0)
         energy_efficiency = eval_result.get("energy_efficiency", float("inf"))
 
-        # Check for improvement
         improvement = False
 
-        if success_rate > self.state.best_success_rate:
+        if success_rate  self.state.best_success_rate:
             self.state.best_success_rate = success_rate
             improvement = True
 
-        if energy_efficiency < self.state.best_energy_efficiency:
+        if energy_efficiency  self.state.best_energy_efficiency:
             self.state.best_energy_efficiency = energy_efficiency
             improvement = True
 
         if improvement:
             self.state.steps_since_improvement = 0
             self.logger.info(
-                f"New best performance: {success_rate:.1f}% success, {energy_efficiency:.0f}J energy"
+                f"New best performance: {success_rate:.1f} success, {energy_efficiency:.0f}J energy"
             )
-            # Save best model
             self._save_checkpoint(is_best=True)
         else:
             self.state.steps_since_improvement += self.training_config.eval_frequency
 
-    def _should_stop_early(self) -> bool:
-        """Check if early stopping should be triggered."""
-        # Target achieved
+    def _should_stop_early(self) - bool:
+
         if (
             self.state.best_success_rate
-            >= self.training_config.target_success_rate * 100
+            = self.training_config.target_success_rate  100
         ):
             self.logger.info(
-                f"Target success rate {self.training_config.target_success_rate*100}% achieved"
+                f"Target success rate {self.training_config.target_success_rate100} achieved"
             )
             return True
 
-        # No improvement for too long
         if (
             self.state.steps_since_improvement
-            >= self.training_config.early_stopping_patience
+            = self.training_config.early_stopping_patience
         ):
             self.logger.info(
                 f"No improvement for {self.training_config.early_stopping_patience:,} steps"
@@ -398,7 +337,7 @@ class PPOTrainer:
         return False
 
     def _record_episode_metrics(self, episode_result: Dict[str, Any]):
-        """Record episode metrics for monitoring."""
+
         self.training_metrics["episode_rewards"].append(
             episode_result["episode_reward"]
         )
@@ -411,15 +350,12 @@ class PPOTrainer:
                 episode_result["episode_energy"]
             )
 
-        # Calculate recent success rate
         recent_episodes = list(self.training_metrics["episode_rewards"])[-20:]
-        if len(recent_episodes) >= 20:
-            # Heuristic: Positive reward indicates success
-            recent_successes = [1 if r > -100 else 0 for r in recent_episodes]
+        if len(recent_episodes) = 20:
+            recent_successes = [1 if r  -100 else 0 for r in recent_episodes]
             success_rate = np.mean(recent_successes)
             self.training_metrics["success_rates"].append(success_rate)
 
-        # Execute episode callbacks
         for callback in self.episode_callbacks:
             try:
                 callback(episode_result)
@@ -427,13 +363,12 @@ class PPOTrainer:
                 self.logger.error(f"Episode callback error: {e}")
 
     def _record_update_metrics(self, update_result: Dict[str, float]):
-        """Record policy update metrics."""
+
         if "policy_loss" in update_result:
             self.training_metrics["policy_losses"].append(update_result["policy_loss"])
         if "value_loss" in update_result:
             self.training_metrics["value_losses"].append(update_result["value_loss"])
 
-        # Execute update callbacks
         for callback in self.update_callbacks:
             try:
                 callback(update_result)
@@ -441,8 +376,7 @@ class PPOTrainer:
                 self.logger.error(f"Update callback error: {e}")
 
     def _log_training_progress(self):
-        """Log training progress."""
-        # Calculate averages
+
         recent_rewards = list(self.training_metrics["episode_rewards"])[-100:]
         recent_lengths = list(self.training_metrics["episode_lengths"])[-100:]
         recent_success = (
@@ -453,20 +387,18 @@ class PPOTrainer:
 
         avg_reward = np.mean(recent_rewards) if recent_rewards else 0
         avg_length = np.mean(recent_lengths) if recent_lengths else 0
-        avg_success = np.mean(recent_success) * 100
+        avg_success = np.mean(recent_success)  100
 
-        # Training progress
-        progress = (self.state.timestep / self.training_config.total_timesteps) * 100
+        progress = (self.state.timestep / self.training_config.total_timesteps)  100
 
         self.logger.info(
-            f"[{progress:5.1f}%] Episode {self.state.episode:,}, "
+            f"[{progress:5.1f}] Episode {self.state.episode:,}, "
             f"Timestep {self.state.timestep:,}/{self.training_config.total_timesteps:,}"
         )
         self.logger.info(
-            f"  Reward: {avg_reward:8.1f}, Length: {avg_length:6.1f}, Success: {avg_success:5.1f}%"
+            f"  Reward: {avg_reward:8.1f}, Length: {avg_length:6.1f}, Success: {avg_success:5.1f}"
         )
 
-        # Log losses if available
         if self.training_metrics["policy_losses"]:
             recent_policy_loss = np.mean(
                 list(self.training_metrics["policy_losses"])[-10:]
@@ -478,7 +410,6 @@ class PPOTrainer:
                 f"  Policy Loss: {recent_policy_loss:.4f}, Value Loss: {recent_value_loss:.4f}"
             )
 
-        # Wandb logging
         if self.use_wandb:
             log_dict = {
                 "timestep": self.state.timestep,
@@ -502,7 +433,7 @@ class PPOTrainer:
             wandb.log(log_dict, step=self.state.timestep)
 
     def _save_checkpoint(self, is_best: bool = False):
-        """Save training checkpoint."""
+
         checkpoint_data = {
             "agent_state": self.agent.policy.state_dict(),
             "optimizer_state": self.agent.optimizer.state_dict(),
@@ -534,24 +465,21 @@ class PPOTrainer:
 
         torch.save(checkpoint_data, checkpoint_path)
 
-        # Keep only recent checkpoints (except best)
         if not is_best:
             self._cleanup_old_checkpoints()
 
         self.logger.info(f"Checkpoint saved: {checkpoint_path}")
 
     def _load_checkpoint(self, checkpoint_path: str):
-        """Load training checkpoint."""
+
         try:
             checkpoint_data = torch.load(
                 checkpoint_path, map_location=self.agent.device
             )
 
-            # Restore agent
             self.agent.policy.load_state_dict(checkpoint_data["agent_state"])
             self.agent.optimizer.load_state_dict(checkpoint_data["optimizer_state"])
 
-            # Restore training state
             training_state = checkpoint_data["training_state"]
             self.state.timestep = training_state["timestep"]
             self.state.episode = training_state["episode"]
@@ -562,7 +490,6 @@ class PPOTrainer:
             ]
             self.state.current_lr = training_state["current_lr"]
 
-            # Restore metrics
             if "training_metrics" in checkpoint_data:
                 metrics = checkpoint_data["training_metrics"]
                 self.training_metrics["episode_rewards"].extend(
@@ -588,21 +515,20 @@ class PPOTrainer:
             raise
 
     def _cleanup_old_checkpoints(self, keep_last: int = 3):
-        """Keep only the most recent checkpoints."""
-        checkpoints = sorted(self.checkpoint_dir.glob("checkpoint_*.pt"))
 
-        if len(checkpoints) > keep_last:
+        checkpoints = sorted(self.checkpoint_dir.glob("checkpoint_.pt"))
+
+        if len(checkpoints)  keep_last:
             for old_checkpoint in checkpoints[:-keep_last]:
                 try:
                     old_checkpoint.unlink()
                 except Exception as e:
                     self.logger.warning(f"Failed to delete old checkpoint: {e}")
 
-    def _final_evaluation(self) -> Dict[str, Any]:
-        """Perform comprehensive final evaluation."""
+    def _final_evaluation(self) - Dict[str, Any]:
+
         self.logger.info("Performing final evaluation...")
 
-        # Use full evaluator with 100 episodes
         full_evaluator = DroneEvaluator({"num_episodes": 100})
         final_summary = full_evaluator.evaluate_policy(
             self.agent, self.environment, "PPO_Final"
@@ -617,15 +543,13 @@ class PPOTrainer:
         }
 
     def _save_final_model(self):
-        """Save final trained model."""
+
         model_path = (
             self.checkpoint_dir / f"{self.training_config.experiment_name}_final.pt"
         )
 
-        # Save using agent's save_model method
         self.agent.save_model(str(model_path))
 
-        # Also save training summary
         summary_path = (
             self.checkpoint_dir / f"{self.training_config.experiment_name}_summary.json"
         )
@@ -653,18 +577,18 @@ class PPOTrainer:
         self.logger.info(f"Final model and summary saved to {self.checkpoint_dir}")
 
     def add_episode_callback(self, callback: Callable[[Dict[str, Any]], None]):
-        """Add callback for episode completion."""
+
         self.episode_callbacks.append(callback)
 
     def add_update_callback(self, callback: Callable[[Dict[str, float]], None]):
-        """Add callback for policy updates."""
+
         self.update_callbacks.append(callback)
 
-    def get_training_statistics(self) -> Dict[str, Any]:
-        """Get comprehensive training statistics."""
+    def get_training_statistics(self) - Dict[str, Any]:
+
         training_time = (
             time.time() - self.state.training_start_time
-            if self.state.training_start_time > 0
+            if self.state.training_start_time  0
             else 0
         )
 
@@ -675,7 +599,7 @@ class PPOTrainer:
                 "progress_percent": (
                     self.state.timestep / self.training_config.total_timesteps
                 )
-                * 100,
+                 100,
                 "training_time_hours": training_time / 3600,
                 "steps_per_second": self.state.timestep / max(1, training_time),
                 "episodes_per_hour": self.state.episode / max(1, training_time / 3600),
@@ -689,7 +613,7 @@ class PPOTrainer:
                     else 0
                 ),
                 "recent_success_rate": (
-                    np.mean(list(self.training_metrics["success_rates"])[-5:]) * 100
+                    np.mean(list(self.training_metrics["success_rates"])[-5:])  100
                     if self.training_metrics["success_rates"]
                     else 0
                 ),

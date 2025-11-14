@@ -1,60 +1,35 @@
-"""
-RRT* Baseline Evaluator
-Evaluates RRT* + PID performance against target metrics from Table 3.
-"""
-
 import numpy as np
 from typing import Dict, List, Any, Tuple
 import time
 from dataclasses import dataclass
 import json
 
-# Import shared data structures from A* baseline
 from ..astar_baseline.evaluator import EpisodeResult, EvaluationMetrics
 
-
 class RRTEvaluator:
-    """
-    Evaluates RRT* + PID baseline performance.
-    Implements evaluation protocol matching Table 3 from report.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.episode_results: List[EpisodeResult] = []
 
-        # Evaluation parameters
         self.num_episodes = config.get("num_episodes", 200)
-        self.max_episode_time = config.get("max_episode_time", 300.0)  # seconds
-        self.goal_tolerance = config.get("goal_tolerance", 0.5)  # meters
+        self.max_episode_time = config.get("max_episode_time", 300.0)
+        self.goal_tolerance = config.get("goal_tolerance", 0.5)
 
-        # Energy calculation parameters
-        self.control_dt = config.get("control_dt", 0.05)  # seconds
-        self.drone_mass = config.get("drone_mass", 1.5)  # kg
+        self.control_dt = config.get("control_dt", 0.05)
+        self.drone_mass = config.get("drone_mass", 1.5)
 
-        # RRT* specific parameters
         self.replan_threshold = config.get(
             "replan_threshold", 2.0
-        )  # meters obstacle distance
-        self.replan_frequency = config.get("replan_frequency", 5.0)  # seconds
+        )
+        self.replan_frequency = config.get("replan_frequency", 5.0)
 
     def evaluate_episode(
         self, rrt_controller, pid_controller, environment
-    ) -> EpisodeResult:
-        """
-        Evaluate single episode with RRT* + PID baseline.
+    ) - EpisodeResult:
 
-        Args:
-            rrt_controller: RRT* path planner
-            pid_controller: PID waypoint follower
-            environment: Simulation environment
-
-        Returns:
-            EpisodeResult with performance metrics
-        """
         result = EpisodeResult()
 
-        # Reset environment and controllers
         obs = environment.reset()
         pid_controller.reset()
 
@@ -65,11 +40,9 @@ class RRTEvaluator:
         previous_pos = None
         planning_time = 0.0
 
-        # Get start and goal positions
         current_pos = environment.get_drone_position()
         goal_pos = environment.get_goal_position()
 
-        # Plan initial RRT* path
         plan_start = time.time()
         obstacles = environment.get_obstacles()
         rrt_controller.update_obstacles(obstacles)
@@ -83,35 +56,29 @@ class RRTEvaluator:
 
         rrt_controller.set_path(path)
 
-        # Episode loop
         step = 0
         max_steps = int(self.max_episode_time / self.control_dt)
 
-        while step < max_steps:
+        while step  max_steps:
             current_time = time.time()
 
-            # Get current state
             current_pos = environment.get_drone_position()
             current_yaw = environment.get_drone_yaw()
 
-            # Check goal reached
             distance_to_goal = np.linalg.norm(
                 np.array(current_pos) - np.array(goal_pos)
             )
-            if distance_to_goal < self.goal_tolerance:
+            if distance_to_goal  self.goal_tolerance:
                 result.success = True
                 break
 
-            # Check collision
             if environment.check_collision():
                 result.collision = True
                 break
 
-            # Periodic replanning for dynamic obstacles
-            if current_time - last_replan_time > self.replan_frequency:
+            if current_time - last_replan_time  self.replan_frequency:
                 obstacles = environment.get_obstacles()
 
-                # Check if replanning is needed (obstacles near path)
                 needs_replan = False
                 for i in range(
                     rrt_controller.path_index, len(rrt_controller.current_path)
@@ -120,7 +87,7 @@ class RRTEvaluator:
                     for obs in obstacles:
                         if (
                             np.linalg.norm(np.array(waypoint) - np.array(obs))
-                            < self.replan_threshold
+                             self.replan_threshold
                         ):
                             needs_replan = True
                             break
@@ -138,10 +105,8 @@ class RRTEvaluator:
 
                 last_replan_time = current_time
 
-            # Get next waypoint
             waypoint = rrt_controller.get_next_waypoint(current_pos)
             if waypoint is None:
-                # Reached end of path but not goal - attempt emergency replan
                 plan_start = time.time()
                 obstacles = environment.get_obstacles()
                 rrt_controller.update_obstacles(obstacles)
@@ -155,7 +120,6 @@ class RRTEvaluator:
                     result.success = False
                     break
 
-            # Compute PID control
             if waypoint:
                 vx, vy, vz, yaw_rate = pid_controller.compute_control(
                     current_pos, current_yaw, waypoint
@@ -163,18 +127,14 @@ class RRTEvaluator:
             else:
                 vx = vy = vz = yaw_rate = 0.0
 
-            # Execute action
             action = np.array([vx, vy, vz, yaw_rate])
             obs, reward, done, info = environment.step(action)
 
-            # Track energy consumption (simplified model)
             velocity_magnitude = np.linalg.norm([vx, vy, vz])
-            # Energy ∝ thrust² ∝ (acceleration + gravity_compensation)²
-            thrust_estimate = self.drone_mass * (velocity_magnitude + 9.81)
-            energy_step = (thrust_estimate**2) * self.control_dt
+            thrust_estimate = self.drone_mass  (velocity_magnitude + 9.81)
+            energy_step = (thrust_estimate2)  self.control_dt
             total_energy += energy_step
 
-            # Track path length
             if previous_pos is not None:
                 path_length += np.linalg.norm(
                     np.array(current_pos) - np.array(previous_pos)
@@ -183,7 +143,6 @@ class RRTEvaluator:
 
             step += 1
 
-        # Calculate final metrics
         result.flight_time = time.time() - start_time
         result.energy_consumed = total_energy
         result.path_length = path_length
@@ -194,39 +153,27 @@ class RRTEvaluator:
             else 0.0
         )
 
-        # Store additional RRT* specific metrics
         result.planning_time = planning_time
         result.num_replans = int((result.flight_time) / self.replan_frequency)
 
-        if step >= max_steps and not result.success and not result.collision:
+        if step = max_steps and not result.success and not result.collision:
             result.timeout = True
 
         return result
 
     def evaluate_multiple_episodes(
         self, rrt_controller, pid_controller, environment, num_episodes: int = None
-    ) -> EvaluationMetrics:
-        """
-        Evaluate multiple episodes and compute aggregate metrics.
+    ) - EvaluationMetrics:
 
-        Args:
-            rrt_controller: RRT* path planner
-            pid_controller: PID waypoint follower
-            environment: Simulation environment
-            num_episodes: Number of episodes (default: from config)
-
-        Returns:
-            EvaluationMetrics with aggregated results
-        """
         if num_episodes is None:
             num_episodes = self.num_episodes
 
         self.episode_results = []
 
-        print(f"Evaluating RRT* + PID baseline over {num_episodes} episodes...")
+        print(f"Evaluating RRT + PID baseline over {num_episodes} episodes...")
 
         for episode in range(num_episodes):
-            if episode % 50 == 0:
+            if episode  50 == 0:
                 print(f"Episode {episode}/{num_episodes}")
 
             result = self.evaluate_episode(rrt_controller, pid_controller, environment)
@@ -234,44 +181,39 @@ class RRTEvaluator:
 
         return self._compute_metrics()
 
-    def _compute_metrics(self) -> EvaluationMetrics:
-        """Compute aggregate metrics from episode results."""
+    def _compute_metrics(self) - EvaluationMetrics:
+
         if not self.episode_results:
             return EvaluationMetrics()
 
         metrics = EvaluationMetrics()
         metrics.episodes_completed = len(self.episode_results)
 
-        # Update target values for RRT* baseline (typically worse than A*)
-        metrics.target_success_rate = 88.0  # Lower than A* baseline
-        metrics.target_energy_mean = 950.0  # Higher than A* baseline
-        metrics.target_time_mean = 45.0  # Higher than A* baseline
-        metrics.target_collision_rate = 2.1  # Higher than A* baseline
-        metrics.target_ate_mean = 0.13  # Higher than A* baseline
+        metrics.target_success_rate = 88.0
+        metrics.target_energy_mean = 950.0
+        metrics.target_time_mean = 45.0
+        metrics.target_collision_rate = 2.1
+        metrics.target_ate_mean = 0.13
 
-        # Success and failure rates
         successes = [r for r in self.episode_results if r.success]
         collisions = [r for r in self.episode_results if r.collision]
         timeouts = [r for r in self.episode_results if r.timeout]
 
-        metrics.success_rate = len(successes) / len(self.episode_results) * 100
-        metrics.collision_rate = len(collisions) / len(self.episode_results) * 100
-        metrics.timeout_rate = len(timeouts) / len(self.episode_results) * 100
+        metrics.success_rate = len(successes) / len(self.episode_results)  100
+        metrics.collision_rate = len(collisions) / len(self.episode_results)  100
+        metrics.timeout_rate = len(timeouts) / len(self.episode_results)  100
 
-        # Energy metrics (only for successful episodes)
         if successes:
             energies = [r.energy_consumed for r in successes]
             metrics.mean_energy = np.mean(energies)
             metrics.std_energy = np.std(energies)
 
-        # Time metrics (only for successful episodes)
         if successes:
             times = [r.flight_time for r in successes]
             metrics.mean_time = np.mean(times)
             metrics.std_time = np.std(times)
 
-        # ATE metrics
-        ate_errors = [r.ate_error for r in self.episode_results if r.ate_error > 0]
+        ate_errors = [r.ate_error for r in self.episode_results if r.ate_error  0]
         if ate_errors:
             metrics.mean_ate = np.mean(ate_errors)
             metrics.std_ate = np.std(ate_errors)
@@ -279,50 +221,49 @@ class RRTEvaluator:
         return metrics
 
     def print_results(self, metrics: EvaluationMetrics):
-        """Print evaluation results in Table 3 format."""
-        print("\n" + "=" * 60)
-        print("RRT* + PID BASELINE EVALUATION RESULTS")
-        print("=" * 60)
+
+        print("\n" + "="  60)
+        print("RRT + PID BASELINE EVALUATION RESULTS")
+        print("="  60)
 
         print(f"Episodes completed: {metrics.episodes_completed}")
         print(
-            f"Success rate: {metrics.success_rate:.1f}% (target: {metrics.target_success_rate:.1f}%)"
+            f"Success rate: {metrics.success_rate:.1f} (target: {metrics.target_success_rate:.1f})"
         )
         print(
-            f"Collision rate: {metrics.collision_rate:.1f}% (target: {metrics.target_collision_rate:.1f}%)"
+            f"Collision rate: {metrics.collision_rate:.1f} (target: {metrics.target_collision_rate:.1f})"
         )
-        print(f"Timeout rate: {metrics.timeout_rate:.1f}%")
+        print(f"Timeout rate: {metrics.timeout_rate:.1f}")
 
-        if metrics.mean_energy > 0:
+        if metrics.mean_energy  0:
             print(
-                f"Energy consumption: {metrics.mean_energy:.0f}±{metrics.std_energy:.0f} J "
+                f"Energy consumption: {metrics.mean_energy:.0f}{metrics.std_energy:.0f} J "
                 f"(target: {metrics.target_energy_mean:.0f} J)"
             )
 
-        if metrics.mean_time > 0:
+        if metrics.mean_time  0:
             print(
-                f"Flight time: {metrics.mean_time:.0f}±{metrics.std_time:.0f} s "
+                f"Flight time: {metrics.mean_time:.0f}{metrics.std_time:.0f} s "
                 f"(target: {metrics.target_time_mean:.0f} s)"
             )
 
-        if metrics.mean_ate > 0:
+        if metrics.mean_ate  0:
             print(
-                f"ATE error: {metrics.mean_ate:.3f}±{metrics.std_ate:.3f} m "
+                f"ATE error: {metrics.mean_ate:.3f}{metrics.std_ate:.3f} m "
                 f"(target: {metrics.target_ate_mean:.3f} m)"
             )
 
-        # Comparison with targets
-        print("\nPerformance vs expected RRT* targets:")
+        print("\nPerformance vs expected RRT targets:")
         print(
-            f"  Success rate: {'✓' if metrics.success_rate >= metrics.target_success_rate else '✗'}"
+            f"  Success rate: {'' if metrics.success_rate = metrics.target_success_rate else ''}"
         )
         print(
-            f"  Collision rate: {'✓' if metrics.collision_rate <= metrics.target_collision_rate else '✗'}"
+            f"  Collision rate: {'' if metrics.collision_rate = metrics.target_collision_rate else ''}"
         )
 
-        if metrics.mean_energy > 0:
+        if metrics.mean_energy  0:
             energy_diff = metrics.mean_energy - metrics.target_energy_mean
             print(
-                f"  Energy: {'✓' if abs(energy_diff) <= 100 else '✗'} "
+                f"  Energy: {'' if abs(energy_diff) = 100 else ''} "
                 f"({energy_diff:+.0f} J difference)"
             )

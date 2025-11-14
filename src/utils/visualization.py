@@ -1,9 +1,3 @@
-"""
-Visualization Utilities
-Visualization tools for trajectories, maps, and system debugging.
-Supports 2D/3D plots, real-time visualization, and data analysis plots.
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -14,38 +8,29 @@ from typing import List, Dict, Optional, Any, Tuple, Union
 from pathlib import Path
 import json
 
-
 class SystemVisualizer:
-    """
-    System-wide visualization utilities.
-    Provides plotting capabilities for all system components.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-        # Visualization parameters
         self.figure_size = config.get("figure_size", (12, 8))
         self.dpi = config.get("dpi", 100)
         self.save_plots = config.get("save_plots", True)
         self.output_dir = Path(config.get("output_dir", "plots"))
 
-        # Color schemes
         self.colors = {
-            "trajectory": "#2E86AB",
-            "goal": "#A23B72",
-            "obstacle": "#F18F01",
-            "collision": "#C73E1D",
-            "safe": "#2ECC71",
-            "warning": "#F39C12",
-            "error": "#E74C3C",
+            "trajectory": "
+            "goal": "
+            "obstacle": "
+            "collision": "
+            "safe": "
+            "warning": "
+            "error": "
         }
 
-        # Style configuration
         plt.style.use(config.get("plot_style", "seaborn-v0_8"))
 
-        # Create output directory
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.info("System Visualizer initialized")
@@ -55,25 +40,13 @@ class SystemVisualizer:
         building_config: Dict[str, Any],
         obstacles: List[Dict[str, Any]] = None,
         save_name: str = "building_map.png",
-    ) -> plt.Figure:
-        """
-        Plot 2D building map with obstacles.
+    ) - plt.Figure:
 
-        Args:
-            building_config: Building configuration
-            obstacles: List of obstacle configurations
-            save_name: Output filename
-
-        Returns:
-            Matplotlib figure
-        """
         fig, ax = plt.subplots(figsize=self.figure_size, dpi=self.dpi)
 
-        # Building bounds
         x_max = building_config.get("x_max", 20.0)
         y_max = building_config.get("y_max", 40.0)
 
-        # Plot building outline
         building_rect = patches.Rectangle(
             (0, 0),
             x_max,
@@ -85,7 +58,6 @@ class SystemVisualizer:
         )
         ax.add_patch(building_rect)
 
-        # Plot obstacles
         if obstacles:
             for obstacle in obstacles:
                 obs_type = obstacle.get("type", "box")
@@ -113,7 +85,6 @@ class SystemVisualizer:
                     )
                     ax.add_patch(obs_circle)
 
-        # Formatting
         ax.set_xlim(0, x_max)
         ax.set_ylim(0, y_max)
         ax.set_xlabel("X (meters)")
@@ -131,24 +102,14 @@ class SystemVisualizer:
         self,
         training_data: Dict[str, List[float]],
         save_name: str = "training_curves.png",
-    ) -> plt.Figure:
-        """
-        Plot RL training curves.
+    ) - plt.Figure:
 
-        Args:
-            training_data: Dictionary of training metrics
-            save_name: Output filename
-
-        Returns:
-            Matplotlib figure
-        """
         fig, axes = plt.subplots(2, 2, figsize=(15, 10), dpi=self.dpi)
         axes = axes.flatten()
 
-        # Plot configurations
         plot_configs = [
             ("episode_rewards", "Episode Reward", "Episodes", "Reward"),
-            ("success_rates", "Success Rate", "Episodes", "Success Rate (%)"),
+            ("success_rates", "Success Rate", "Episodes", "Success Rate ()"),
             ("energy_consumption", "Energy Consumption", "Episodes", "Energy (J)"),
             ("policy_losses", "Policy Loss", "Updates", "Loss"),
         ]
@@ -157,12 +118,10 @@ class SystemVisualizer:
             if metric_name in training_data and training_data[metric_name]:
                 data = training_data[metric_name]
 
-                # Plot main curve
                 axes[i].plot(data, color=self.colors["trajectory"], linewidth=1.5)
 
-                # Add moving average
-                if len(data) > 10:
-                    window_size = min(50, len(data) // 10)
+                if len(data)  10:
+                    window_size = min(50, len(data)
                     moving_avg = np.convolve(
                         data, np.ones(window_size) / window_size, mode="valid"
                     )
@@ -190,17 +149,8 @@ class SystemVisualizer:
         self,
         evaluation_results: Dict[str, Dict[str, float]],
         save_name: str = "evaluation_comparison.png",
-    ) -> plt.Figure:
-        """
-        Plot evaluation comparison between methods.
+    ) - plt.Figure:
 
-        Args:
-            evaluation_results: Dictionary of method results
-            save_name: Output filename
-
-        Returns:
-            Matplotlib figure
-        """
         methods = list(evaluation_results.keys())
         metrics = ["success_rate", "mean_energy", "mean_time", "collision_rate"]
 
@@ -214,14 +164,12 @@ class SystemVisualizer:
                 methods, values, color=self.colors["trajectory"], alpha=0.7
             )
 
-            # Color code bars based on performance
             if metric in ["success_rate"]:
-                # Higher is better
                 max_val = max(values) if values else 1
                 for bar, val in zip(bars, values):
-                    if val >= 0.9 * max_val:
+                    if val = 0.9  max_val:
                         bar.set_color(self.colors["safe"])
-                    elif val >= 0.7 * max_val:
+                    elif val = 0.7  max_val:
                         bar.set_color(self.colors["warning"])
                     else:
                         bar.set_color(self.colors["error"])
@@ -229,7 +177,6 @@ class SystemVisualizer:
             axes[i].set_title(metric.replace("_", " ").title())
             axes[i].set_ylabel("Value")
 
-            # Add value labels on bars
             for bar, val in zip(bars, values):
                 height = bar.get_height()
                 axes[i].text(
@@ -249,35 +196,23 @@ class SystemVisualizer:
 
     def plot_system_metrics(
         self, metrics_data: Dict[str, Any], save_name: str = "system_metrics.png"
-    ) -> plt.Figure:
-        """
-        Plot system-wide performance metrics.
+    ) - plt.Figure:
 
-        Args:
-            metrics_data: System metrics data
-            save_name: Output filename
-
-        Returns:
-            Matplotlib figure
-        """
         fig, axes = plt.subplots(2, 3, figsize=(18, 10), dpi=self.dpi)
         axes = axes.flatten()
 
-        # CPU usage
         if "cpu_usage" in metrics_data:
             axes[0].plot(metrics_data["cpu_usage"], color=self.colors["trajectory"])
             axes[0].set_title("CPU Usage")
-            axes[0].set_ylabel("Usage (%)")
+            axes[0].set_ylabel("Usage ()")
             axes[0].grid(True, alpha=0.3)
 
-        # Memory usage
         if "memory_usage" in metrics_data:
             axes[1].plot(metrics_data["memory_usage"], color=self.colors["warning"])
             axes[1].set_title("Memory Usage")
             axes[1].set_ylabel("Usage (MB)")
             axes[1].grid(True, alpha=0.3)
 
-        # Processing frequency
         if "processing_frequency" in metrics_data:
             axes[2].plot(
                 metrics_data["processing_frequency"], color=self.colors["safe"]
@@ -286,14 +221,12 @@ class SystemVisualizer:
             axes[2].set_ylabel("Frequency (Hz)")
             axes[2].grid(True, alpha=0.3)
 
-        # Network latency
         if "network_latency" in metrics_data:
             axes[3].plot(metrics_data["network_latency"], color=self.colors["error"])
             axes[3].set_title("Network Latency")
             axes[3].set_ylabel("Latency (ms)")
             axes[3].grid(True, alpha=0.3)
 
-        # Energy consumption
         if "power_consumption" in metrics_data:
             axes[4].plot(
                 metrics_data["power_consumption"], color=self.colors["obstacle"]
@@ -302,11 +235,10 @@ class SystemVisualizer:
             axes[4].set_ylabel("Power (W)")
             axes[4].grid(True, alpha=0.3)
 
-        # Temperature
         if "temperature" in metrics_data:
             axes[5].plot(metrics_data["temperature"], color=self.colors["collision"])
             axes[5].set_title("System Temperature")
-            axes[5].set_ylabel("Temperature (°C)")
+            axes[5].set_ylabel("Temperature (C)")
             axes[5].grid(True, alpha=0.3)
 
         plt.tight_layout()
@@ -316,12 +248,7 @@ class SystemVisualizer:
 
         return fig
 
-
 class TrajectoryPlotter:
-    """
-    Specialized trajectory visualization tools.
-    Handles 2D and 3D trajectory plotting with detailed analysis.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -331,8 +258,7 @@ class TrajectoryPlotter:
         self.dpi = config.get("dpi", 100)
         self.output_dir = Path(config.get("output_dir", "plots"))
 
-        # Trajectory colors
-        self.trajectory_colors = ["#2E86AB", "#A23B72", "#F18F01", "#2ECC71", "#9B59B6"]
+        self.trajectory_colors = ["
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -345,24 +271,11 @@ class TrajectoryPlotter:
         obstacles: List[Dict[str, Any]] = None,
         goal_position: Optional[np.ndarray] = None,
         save_name: str = "3d_trajectory.png",
-    ) -> plt.Figure:
-        """
-        Plot 3D trajectory with building and obstacles.
+    ) - plt.Figure:
 
-        Args:
-            trajectory: Trajectory points [N, 3]
-            building_bounds: Building dimensions
-            obstacles: List of obstacles
-            goal_position: Goal position
-            save_name: Output filename
-
-        Returns:
-            Matplotlib figure
-        """
         fig = plt.figure(figsize=(12, 10), dpi=self.dpi)
         ax = fig.add_subplot(111, projection="3d")
 
-        # Plot trajectory
         ax.plot(
             trajectory[:, 0],
             trajectory[:, 1],
@@ -372,20 +285,16 @@ class TrajectoryPlotter:
             label="Trajectory",
         )
 
-        # Mark start and end points
-        ax.scatter(*trajectory[0], color="green", s=100, label="Start")
-        ax.scatter(*trajectory[-1], color="red", s=100, label="End")
+        ax.scatter(trajectory[0], color="green", s=100, label="Start")
+        ax.scatter(trajectory[-1], color="red", s=100, label="End")
 
-        # Mark goal if provided
         if goal_position is not None:
-            ax.scatter(*goal_position, color="gold", s=150, marker="*", label="Goal")
+            ax.scatter(goal_position, color="gold", s=150, marker="", label="Goal")
 
-        # Plot building bounds
         x_max = building_bounds.get("x_max", 20)
         y_max = building_bounds.get("y_max", 40)
         z_max = building_bounds.get("z_max", 15)
 
-        # Building wireframe
         corners = np.array(
             [
                 [0, 0, 0],
@@ -399,29 +308,27 @@ class TrajectoryPlotter:
             ]
         )
 
-        # Draw building edges
         edges = [
             [0, 1],
             [1, 2],
             [2, 3],
-            [3, 0],  # Bottom
+            [3, 0],
             [4, 5],
             [5, 6],
             [6, 7],
-            [7, 4],  # Top
+            [7, 4],
             [0, 4],
             [1, 5],
             [2, 6],
-            [3, 7],  # Vertical
+            [3, 7],
         ]
 
         for edge in edges:
             points = corners[edge]
-            ax.plot3D(*points.T, "k-", alpha=0.3)
+            ax.plot3D(points.T, "k-", alpha=0.3)
 
-        # Plot floor levels
         for floor in range(1, 6):
-            z = floor * 3
+            z = floor  3
             ax.plot(
                 [0, x_max, x_max, 0, 0],
                 [0, 0, y_max, y_max, 0],
@@ -430,24 +337,20 @@ class TrajectoryPlotter:
                 alpha=0.2,
             )
 
-        # Plot obstacles
         if obstacles:
             for obs in obstacles:
                 if obs.get("type") == "box":
                     pos = obs.get("position", [0, 0, 0])
                     size = obs.get("size", [1, 1, 1])
 
-                    # Simple box representation
-                    ax.scatter(*pos, color="orange", s=50, alpha=0.7)
+                    ax.scatter(pos, color="orange", s=50, alpha=0.7)
 
-        # Formatting
         ax.set_xlabel("X (m)")
         ax.set_ylabel("Y (m)")
         ax.set_zlabel("Z (m)")
         ax.set_title("3D Trajectory")
         ax.legend()
 
-        # Set equal aspect ratio
         max_range = max(x_max, y_max, z_max)
         ax.set_xlim(0, max_range)
         ax.set_ylim(0, max_range)
@@ -465,28 +368,14 @@ class TrajectoryPlotter:
         accelerations: np.ndarray = None,
         energy_consumption: np.ndarray = None,
         save_name: str = "trajectory_analysis.png",
-    ) -> plt.Figure:
-        """
-        Plot detailed trajectory analysis.
+    ) - plt.Figure:
 
-        Args:
-            trajectory: Trajectory points
-            velocities: Velocity profile
-            accelerations: Acceleration profile
-            energy_consumption: Energy consumption profile
-            save_name: Output filename
-
-        Returns:
-            Matplotlib figure
-        """
         fig, axes = plt.subplots(2, 2, figsize=(15, 10), dpi=self.dpi)
 
-        # Calculate time axis
         time_axis = np.linspace(
             0, len(trajectory) / 20.0, len(trajectory)
-        )  # Assume 20Hz
+        )
 
-        # Position plot
         axes[0, 0].plot(
             time_axis, trajectory[:, 0], label="X", color=self.trajectory_colors[0]
         )
@@ -502,7 +391,6 @@ class TrajectoryPlotter:
         axes[0, 0].legend()
         axes[0, 0].grid(True, alpha=0.3)
 
-        # Velocity plot
         if velocities is not None:
             vel_mag = np.linalg.norm(velocities, axis=1)
             axes[0, 1].plot(time_axis, vel_mag, color=self.trajectory_colors[0])
@@ -515,7 +403,6 @@ class TrajectoryPlotter:
             axes[0, 1].legend()
             axes[0, 1].grid(True, alpha=0.3)
 
-        # Acceleration plot
         if accelerations is not None:
             accel_mag = np.linalg.norm(accelerations, axis=1)
             axes[1, 0].plot(time_axis, accel_mag, color=self.trajectory_colors[3])
@@ -524,7 +411,6 @@ class TrajectoryPlotter:
             axes[1, 0].set_ylabel("Acceleration (m/s²)")
             axes[1, 0].grid(True, alpha=0.3)
 
-        # Energy consumption
         if energy_consumption is not None:
             axes[1, 1].plot(
                 time_axis, energy_consumption, color=self.trajectory_colors[4]
