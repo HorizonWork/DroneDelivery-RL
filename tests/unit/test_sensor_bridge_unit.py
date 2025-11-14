@@ -1,29 +1,24 @@
-"""Unit tests for sensor bridge components"""
-
 import pytest
 import numpy as np
 from unittest.mock import patch, MagicMock
 from src.bridges.sensor_bridge import SensorBridge
 
-
 class TestSensorBridgeUnit:
-    """Unit tests for SensorBridge class"""
 
     def test_sensor_bridge_constructor(self):
-        """Test SensorBridge constructor"""
+
         with patch("airsim.MultirotorClient"):
             bridge = SensorBridge()
 
             assert bridge is not None
             assert hasattr(bridge, "client")
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_imu_data_method(self, mock_client):
-        """Test the get_imu_data method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getImuData response
         mock_imu_data = MagicMock()
         mock_imu_data.orientation = MagicMock()
         mock_imu_data.orientation.w_val = 1.0
@@ -48,13 +43,12 @@ class TestSensorBridgeUnit:
         assert hasattr(imu_data, "angular_velocity")
         assert hasattr(imu_data, "linear_acceleration")
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_camera_data_method(self, mock_client):
-        """Test the get_camera_data method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the simGetImages response
         mock_image_response = MagicMock()
         mock_image_response[0].image_data_uint8 = np.array([1, 2, 3, 4], dtype=np.uint8)
         mock_client_instance.simGetImages.return_value = [mock_image_response[0]]
@@ -64,13 +58,12 @@ class TestSensorBridgeUnit:
 
         assert camera_data is not None
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_gps_data_method(self, mock_client):
-        """Test the get_gps_data method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getGpsData response
         mock_gps_data = MagicMock()
         mock_gps_data.gpfd = MagicMock()
         mock_gps_data.gpfd.latitude = 37.7749
@@ -87,13 +80,12 @@ class TestSensorBridgeUnit:
         assert gps_data.gpfd.longitude == -122.4194
         assert gps_data.gpfd.altitude == 10.0
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_barometer_data_method(self, mock_client):
-        """Test the get_barometer_data method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getBarometerData response
         mock_baro_data = MagicMock()
         mock_baro_data.altitude = 5.0
         mock_baro_data.pressure = 1013.25
@@ -106,13 +98,12 @@ class TestSensorBridgeUnit:
         assert hasattr(baro_data, "altitude")
         assert hasattr(baro_data, "pressure")
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_magnetometer_data_method(self, mock_client):
-        """Test the get_magnetometer_data method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getMagnetometerData response
         mock_mag_data = MagicMock()
         mock_mag_data.magnetic_field_body = MagicMock()
         mock_mag_data.magnetic_field_body.x_val = 0.2
@@ -126,13 +117,12 @@ class TestSensorBridgeUnit:
         assert mag_data is not None
         assert hasattr(mag_data, "magnetic_field_body")
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_distance_data_method(self, mock_client):
-        """Test the get_distance_data method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getDistanceSensorData response
         mock_dist_data = MagicMock()
         mock_dist_data.distance = 1.5
         mock_client_instance.getDistanceSensorData.return_value = mock_dist_data
@@ -144,23 +134,19 @@ class TestSensorBridgeUnit:
         assert hasattr(dist_data, "distance")
 
     def test_sensor_data_fusion_method(self):
-        """Test the sensor data fusion functionality"""
-        # This test verifies the integration of multiple sensor readings
+
         with patch("airsim.MultirotorClient"):
             bridge = SensorBridge()
 
-            # Since we can't easily mock all sensor data at once,
-            # we'll just verify the method exists and is callable
             assert hasattr(bridge, "get_fused_sensor_data")
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_airsim_settings_method(self, mock_client):
-        """Test the get_airsim_settings method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
         bridge = SensorBridge()
 
-        # Verify that the bridge can access settings-related methods
         assert hasattr(bridge, "get_position")
         assert hasattr(bridge, "get_orientation")

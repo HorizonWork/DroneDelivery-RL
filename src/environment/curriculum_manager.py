@@ -1,8 +1,3 @@
-"""
-Curriculum Manager
-Manages 3-phase curriculum learning: 1→2→5 floors progression.
-"""
-
 import numpy as np
 import logging
 import time
@@ -12,18 +7,14 @@ from enum import Enum
 from pathlib import Path
 import yaml
 
-
 class CurriculumPhase(Enum):
-    """Curriculum learning phases."""
 
-    PHASE_1 = 1  # Single floor (1M timesteps)
-    PHASE_2 = 2  # Two floors (2M timesteps)
-    PHASE_3 = 3  # Five floors (2M timesteps)
+    PHASE_1 = 1
+    PHASE_2 = 2
+    PHASE_3 = 3
 
-
-@dataclass
+dataclass
 class PhaseConfig:
-    """Configuration for curriculum phase."""
 
     phase: CurriculumPhase
     name: str
@@ -34,10 +25,8 @@ class PhaseConfig:
     success_threshold: float
     min_episodes: int
 
-
-@dataclass
+dataclass
 class PhaseProgress:
-    """Progress tracking for curriculum phase."""
 
     episodes_completed: int = 0
     timesteps_completed: int = 0
@@ -47,19 +36,13 @@ class PhaseProgress:
     ready_for_next: bool = False
     phase_start_time: float = 0.0
 
-
 class CurriculumManager:
-    """
-    Manages curriculum learning progression.
-    Implements 3-phase learning: single→two→five floors.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-        # Curriculum configuration (matches training config)
-        self.total_timesteps = config.get("total_timesteps", 5000000)  # 5M total
+        self.total_timesteps = config.get("total_timesteps", 5000000)
         self.enabled = config.get("curriculum_enabled", True)
         self.curriculum_config_path = config.get(
             "curriculum_config_path", "config/training/curriculum_config.yaml"
@@ -68,12 +51,11 @@ class CurriculumManager:
         self.curriculum_source: Optional[str] = None
         self.phase_environment_overrides: Dict[str, Dict[str, Any]] = {}
 
-        # Phase configurations (exact match with curriculum_config.yaml)
         self.phases = {
             CurriculumPhase.PHASE_1: PhaseConfig(
                 phase=CurriculumPhase.PHASE_1,
                 name="single_floor_static",
-                timesteps=1000000,  # 1M
+                timesteps=1000000,
                 active_floors=1,
                 dynamic_obstacles=False,
                 difficulty="easy",
@@ -83,7 +65,7 @@ class CurriculumManager:
             CurriculumPhase.PHASE_2: PhaseConfig(
                 phase=CurriculumPhase.PHASE_2,
                 name="two_floors_dynamic",
-                timesteps=2000000,  # 2M
+                timesteps=2000000,
                 active_floors=2,
                 dynamic_obstacles=True,
                 difficulty="medium",
@@ -93,16 +75,15 @@ class CurriculumManager:
             CurriculumPhase.PHASE_3: PhaseConfig(
                 phase=CurriculumPhase.PHASE_3,
                 name="five_floors_full",
-                timesteps=2000000,  # 2M
+                timesteps=2000000,
                 active_floors=5,
                 dynamic_obstacles=True,
                 difficulty="hard",
-                success_threshold=0.96,  # Target performance
+                success_threshold=0.96,
                 min_episodes=3000,
             ),
         }
 
-        # Progression criteria defaults (may be overridden by curriculum config)
         self.evaluation_episodes = config.get("evaluation_episodes", 100)
         self.evaluation_frequency = config.get("evaluation_frequency", 10000)
         self.patience = config.get("patience", 5)
@@ -111,16 +92,13 @@ class CurriculumManager:
         if curriculum_data:
             self._apply_curriculum_config(curriculum_data)
 
-        # Current state
         self.current_phase = CurriculumPhase.PHASE_1
         self.progress = {phase: PhaseProgress() for phase in CurriculumPhase}
         self.total_timesteps_completed = 0
 
-        # Recent performance tracking
         self.recent_episodes: List[Dict[str, Any]] = []
         self.max_recent_episodes = 200
 
-        # Initialize first phase
         self.progress[self.current_phase].phase_start_time = time.time()
 
         self.logger.info("Curriculum Manager initialized")
@@ -139,47 +117,29 @@ class CurriculumManager:
         if self.curriculum_force_phase:
             self.force_phase_transition(self.curriculum_force_phase)
 
-    def get_current_phase(self) -> int:
-        """
-        Get current curriculum phase number.
+    def get_current_phase(self) - int:
 
-        Returns:
-            Phase number (1, 2, or 3)
-        """
         if not self.enabled:
-            return 3  # Full environment if curriculum disabled
+            return 3
 
         return self.current_phase.value
 
-    def get_current_config(self) -> PhaseConfig:
-        """
-        Get configuration for current phase.
+    def get_current_config(self) - PhaseConfig:
 
-        Returns:
-            Current phase configuration
-        """
         if not self.enabled:
-            return self.phases[CurriculumPhase.PHASE_3]  # Full environment
+            return self.phases[CurriculumPhase.PHASE_3]
 
         return self.phases[self.current_phase]
 
     def update_progress(
         self, success: bool, collision: bool, timesteps_this_episode: int = 1
     ):
-        """
-        Update progress for current phase.
 
-        Args:
-            success: Whether episode was successful
-            collision: Whether collision occurred
-            timesteps_this_episode: Number of timesteps in episode
-        """
         if not self.enabled:
             return
 
         current_progress = self.progress[self.current_phase]
 
-        # Update counters
         current_progress.episodes_completed += 1
         current_progress.timesteps_completed += timesteps_this_episode
         self.total_timesteps_completed += timesteps_this_episode
@@ -189,13 +149,11 @@ class CurriculumManager:
         if collision:
             current_progress.collision_count += 1
 
-        # Calculate success rate
-        if current_progress.episodes_completed > 0:
+        if current_progress.episodes_completed  0:
             current_progress.success_rate = (
                 current_progress.success_count / current_progress.episodes_completed
             )
 
-        # Store recent episode info
         episode_info = {
             "phase": self.current_phase.value,
             "success": success,
@@ -205,38 +163,32 @@ class CurriculumManager:
         }
         self.recent_episodes.append(episode_info)
 
-        # Limit recent episodes memory
-        if len(self.recent_episodes) > self.max_recent_episodes:
+        if len(self.recent_episodes)  self.max_recent_episodes:
             self.recent_episodes.pop(0)
 
-        # Check progression criteria
         self._check_phase_progression()
 
-        # Log progress periodically
-        if current_progress.episodes_completed % 100 == 0:
+        if current_progress.episodes_completed  100 == 0:
             self._log_progress()
 
     def _check_phase_progression(self):
-        """Check if ready to progress to next phase."""
+
         if not self.enabled or self.current_phase == CurriculumPhase.PHASE_3:
-            return  # Already at final phase
+            return
 
         current_progress = self.progress[self.current_phase]
         phase_config = self.phases[self.current_phase]
 
-        # Check minimum requirements
         min_episodes_met = (
-            current_progress.episodes_completed >= phase_config.min_episodes
+            current_progress.episodes_completed = phase_config.min_episodes
         )
         min_timesteps_met = (
-            current_progress.timesteps_completed >= phase_config.timesteps
+            current_progress.timesteps_completed = phase_config.timesteps
         )
 
-        # Check success threshold (over recent episodes)
         recent_success_rate = self._calculate_recent_success_rate()
-        success_threshold_met = recent_success_rate >= phase_config.success_threshold
+        success_threshold_met = recent_success_rate = phase_config.success_threshold
 
-        # All criteria must be met
         if min_episodes_met and min_timesteps_met and success_threshold_met:
             if not current_progress.ready_for_next:
                 current_progress.ready_for_next = True
@@ -253,23 +205,13 @@ class CurriculumManager:
                     f"  Success rate: {recent_success_rate:.3f}/{phase_config.success_threshold}"
                 )
 
-                # Progress to next phase
                 self._advance_to_next_phase()
 
-    def _calculate_recent_success_rate(self, window_size: int = 100) -> float:
-        """
-        Calculate success rate over recent episodes.
+    def _calculate_recent_success_rate(self, window_size: int = 100) - float:
 
-        Args:
-            window_size: Number of recent episodes to consider
-
-        Returns:
-            Recent success rate
-        """
         if not self.recent_episodes:
             return 0.0
 
-        # Get recent episodes for current phase
         recent_current_phase = [
             ep
             for ep in self.recent_episodes[-window_size:]
@@ -283,57 +225,54 @@ class CurriculumManager:
         return success_count / len(recent_current_phase)
 
     def _advance_to_next_phase(self):
-        """Advance to next curriculum phase."""
+
         if self.current_phase == CurriculumPhase.PHASE_1:
             next_phase = CurriculumPhase.PHASE_2
         elif self.current_phase == CurriculumPhase.PHASE_2:
             next_phase = CurriculumPhase.PHASE_3
         else:
-            return  # Already at final phase
+            return
 
-        # Log phase transition
         current_config = self.phases[self.current_phase]
         next_config = self.phases[next_phase]
 
-        self.logger.info("=" * 60)
+        self.logger.info("="  60)
         self.logger.info(
-            f"CURRICULUM PHASE PROGRESSION: {self.current_phase.value} → {next_phase.value}"
+            f"CURRICULUM PHASE PROGRESSION: {self.current_phase.value}  {next_phase.value}"
         )
         self.logger.info(f"  From: {current_config.name}")
         self.logger.info(f"  To: {next_config.name}")
         self.logger.info(
-            f"  Floors: {current_config.active_floors} → {next_config.active_floors}"
+            f"  Floors: {current_config.active_floors}  {next_config.active_floors}"
         )
         self.logger.info(
-            f"  Difficulty: {current_config.difficulty} → {next_config.difficulty}"
+            f"  Difficulty: {current_config.difficulty}  {next_config.difficulty}"
         )
-        recent_success = 100 * self._calculate_recent_success_rate()
-        self.logger.info(f"  Recent success rate: {recent_success:.1f}%")
-        self.logger.info("=" * 60)
+        recent_success = 100  self._calculate_recent_success_rate()
+        self.logger.info(f"  Recent success rate: {recent_success:.1f}")
+        self.logger.info("="  60)
 
-        # Update current phase
         self.current_phase = next_phase
         self.progress[next_phase].phase_start_time = time.time()
 
     def _log_progress(self):
-        """Log current phase progress."""
+
         current_progress = self.progress[self.current_phase]
         phase_config = self.phases[self.current_phase]
 
-        # Calculate completion percentages
         episode_progress = min(
-            100, 100 * current_progress.episodes_completed / phase_config.min_episodes
+            100, 100  current_progress.episodes_completed / phase_config.min_episodes
         )
         timestep_progress = min(
-            100, 100 * current_progress.timesteps_completed / phase_config.timesteps
+            100, 100  current_progress.timesteps_completed / phase_config.timesteps
         )
 
         self.logger.info(f"Phase {self.current_phase.value} progress:")
         self.logger.info(
-            f"  Episodes: {current_progress.episodes_completed}/{phase_config.min_episodes} ({episode_progress:.1f}%)"
+            f"  Episodes: {current_progress.episodes_completed}/{phase_config.min_episodes} ({episode_progress:.1f})"
         )
         self.logger.info(
-            f"  Timesteps: {current_progress.timesteps_completed}/{phase_config.timesteps} ({timestep_progress:.1f}%)"
+            f"  Timesteps: {current_progress.timesteps_completed}/{phase_config.timesteps} ({timestep_progress:.1f})"
         )
         self.logger.info(
             f"  Success rate: {current_progress.success_rate:.3f} (target: {phase_config.success_threshold})"
@@ -342,13 +281,8 @@ class CurriculumManager:
             f"  Recent success rate: {self._calculate_recent_success_rate():.3f}"
         )
 
-    def get_environment_config(self) -> Dict[str, Any]:
-        """
-        Get environment configuration for current phase.
+    def get_environment_config(self) - Dict[str, Any]:
 
-        Returns:
-            Environment configuration dictionary
-        """
         phase_config = self.get_current_config()
         env_config = {
             "active_floors": phase_config.active_floors,
@@ -363,20 +297,13 @@ class CurriculumManager:
 
         return env_config
 
-    def get_progress_info(self) -> Dict[str, Any]:
-        """
-        Get comprehensive progress information.
+    def get_progress_info(self) - Dict[str, Any]:
 
-        Returns:
-            Progress information dictionary
-        """
         current_progress = self.progress[self.current_phase]
         phase_config = self.phases[self.current_phase]
 
-        # Calculate overall progress
         overall_progress = self.total_timesteps_completed / self.total_timesteps
 
-        # Phase progress
         phase_time = time.time() - current_progress.phase_start_time
 
         info = {
@@ -384,7 +311,7 @@ class CurriculumManager:
             "total_progress": {
                 "timesteps_completed": self.total_timesteps_completed,
                 "total_timesteps": self.total_timesteps,
-                "completion_percentage": min(100, 100 * overall_progress),
+                "completion_percentage": min(100, 100  overall_progress),
             },
             "current_phase": {
                 "phase_number": self.current_phase.value,
@@ -420,22 +347,22 @@ class CurriculumManager:
 
         return info
 
-    def _resolve_path(self, path_value: str) -> Path:
-        """Resolve curriculum config path."""
+    def _resolve_path(self, path_value: str) - Path:
+
         path = Path(path_value)
         if not path.is_absolute():
             path = Path.cwd() / path
         return path
 
-    def _load_curriculum_config(self) -> Optional[Dict[str, Any]]:
-        """Load curriculum configuration YAML if available."""
+    def _load_curriculum_config(self) - Optional[Dict[str, Any]]:
+
         if not self.curriculum_config_path:
             return None
 
         path = self._resolve_path(self.curriculum_config_path)
         if not path.exists():
             self.logger.warning(
-                "Curriculum config file not found at %s. Using built-in defaults.",
+                "Curriculum config file not found at s. Using built-in defaults.",
                 path,
             )
             return None
@@ -450,7 +377,7 @@ class CurriculumManager:
             return None
 
     def _apply_curriculum_config(self, cfg: Dict[str, Any]):
-        """Apply curriculum configuration data to runtime settings."""
+
         curriculum_cfg = cfg.get("curriculum", {})
         if curriculum_cfg:
             self.enabled = curriculum_cfg.get("enabled", self.enabled)
@@ -466,7 +393,7 @@ class CurriculumManager:
                         phase_enum = CurriculumPhase(idx)
                     except ValueError:
                         self.logger.warning(
-                            "Ignoring curriculum phase index %s (out of supported range)",
+                            "Ignoring curriculum phase index s (out of supported range)",
                             idx,
                         )
                         continue
@@ -521,12 +448,7 @@ class CurriculumManager:
             self.phase_environment_overrides = phase_overrides
 
     def force_phase_transition(self, target_phase: Any):
-        """
-        Force transition to specific phase (for testing).
 
-        Args:
-            target_phase: Target phase number (1, 2, or 3)
-        """
         if not self.enabled:
             self.logger.warning("Cannot force phase transition - curriculum disabled")
             return
@@ -564,7 +486,7 @@ class CurriculumManager:
             self.progress[target].phase_start_time = time.time()
 
     def reset_curriculum(self):
-        """Reset curriculum to initial state."""
+
         self.current_phase = CurriculumPhase.PHASE_1
         self.progress = {phase: PhaseProgress() for phase in CurriculumPhase}
         self.total_timesteps_completed = 0
@@ -573,13 +495,8 @@ class CurriculumManager:
 
         self.logger.info("Curriculum reset to Phase 1")
 
-    def is_curriculum_complete(self) -> bool:
-        """
-        Check if entire curriculum is complete.
+    def is_curriculum_complete(self) - bool:
 
-        Returns:
-            True if all phases completed
-        """
         if not self.enabled:
             return False
 
@@ -588,30 +505,23 @@ class CurriculumManager:
             and self.progress[CurriculumPhase.PHASE_3].ready_for_next
         )
 
-    def get_estimated_time_remaining(self) -> Optional[float]:
-        """
-        Estimate time remaining for current phase.
+    def get_estimated_time_remaining(self) - Optional[float]:
 
-        Returns:
-            Estimated seconds remaining, or None if cannot estimate
-        """
         current_progress = self.progress[self.current_phase]
         phase_config = self.phases[self.current_phase]
 
         if current_progress.timesteps_completed == 0:
             return None
 
-        # Calculate rate of progress
         phase_duration = time.time() - current_progress.phase_start_time
         timesteps_per_second = current_progress.timesteps_completed / phase_duration
 
-        # Estimate remaining time
         remaining_timesteps = max(
             0, phase_config.timesteps - current_progress.timesteps_completed
         )
         estimated_seconds = (
             remaining_timesteps / timesteps_per_second
-            if timesteps_per_second > 0
+            if timesteps_per_second  0
             else None
         )
 

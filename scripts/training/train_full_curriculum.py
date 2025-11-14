@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Full Curriculum Training Script
-Implements complete curriculum learning as described in research paper.
-Three phases: Single floor → Two floors → Five floors with increasing complexity.
-"""
-
 import os
 import sys
 import argparse
@@ -17,7 +10,6 @@ import numpy as np
 import random
 import torch
 
-# Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
@@ -26,24 +18,16 @@ from src.rl.training.curriculum_trainer import CurriculumManager
 from src.rl.initialization import initialize_rl_system
 from src.utils import setup_logging, load_config
 
+def set_global_seeds(seed: int) - None:
 
-def set_global_seeds(seed: int) -> None:
-    """Set global seeds for reproducible experiments."""
-    logging.info("Setting global random seed to %d", seed)
+    logging.info("Setting global random seed to d", seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-
 class FullCurriculumTrainer:
-    """
-    Complete curriculum learning implementation matching research paper.
-    Phase 1: Single floor, static obstacles
-    Phase 2: Two floors, dynamic obstacles
-    Phase 3: Five floors, complex scenarios
-    """
 
     def __init__(self, config_path: str):
         self.config = load_config(config_path)
@@ -53,11 +37,9 @@ class FullCurriculumTrainer:
         set_global_seeds(rl_seed)
         self.seed = rl_seed
 
-        # Setup logging
         self.logger_system = setup_logging(self.config.logging)
         self.logger = logging.getLogger(__name__)
 
-        # Curriculum phases definition (exact from paper)
         self.curriculum_phases = [
             {
                 "name": "Phase_1_SingleFloor_Static",
@@ -112,47 +94,36 @@ class FullCurriculumTrainer:
             },
         ]
 
-        # Initialize training components
         self.rl_system = initialize_rl_system(self.config.rl)
         self.agent = self.rl_system["agent"]
 
-        # Training state
         self.current_phase_index = 0
         self.global_timestep = 0
         self.phase_timestep = 0
         self.episode_count = 0
 
-        # Phase results storage
         self.phase_results = []
 
         self.logger.info("Full Curriculum Trainer initialized")
         self.logger.info(f"Total phases: {len(self.curriculum_phases)}")
         self.logger.info(f"Target timesteps: 5,000,000")
 
-    def train_full_curriculum(self) -> Dict[str, Any]:
-        """
-        Execute complete curriculum training.
+    def train_full_curriculum(self) - Dict[str, Any]:
 
-        Returns:
-            Complete curriculum results
-        """
         self.logger.info("=== STARTING FULL CURRICULUM TRAINING ===")
         training_start = time.time()
 
-        # Train each phase sequentially
         for phase_index, phase_config in enumerate(self.curriculum_phases):
             self.current_phase_index = phase_index
             phase_results = self._train_phase(phase_config)
             self.phase_results.append(phase_results)
 
-            # Check if phase was successful
             if not phase_results["success"]:
                 self.logger.error(f"Phase {phase_index + 1} failed - stopping training")
                 break
 
         total_training_time = time.time() - training_start
 
-        # Compile final results
         curriculum_results = {
             "curriculum_completed": True,
             "total_training_time_hours": total_training_time / 3600,
@@ -163,84 +134,66 @@ class FullCurriculumTrainer:
             "final_performance": self._get_final_performance(),
         }
 
-        # Save results
         self._save_curriculum_results(curriculum_results)
 
         self.logger.info("=== FULL CURRICULUM TRAINING COMPLETED ===")
         return curriculum_results
 
-    def _train_phase(self, phase_config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Train single curriculum phase.
+    def _train_phase(self, phase_config: Dict[str, Any]) - Dict[str, Any]:
 
-        Args:
-            phase_config: Phase configuration
-
-        Returns:
-            Phase training results
-        """
         phase_name = phase_config["name"]
         phase_start_time = time.time()
         self.phase_timestep = 0
 
         self.logger.info(f"Starting {phase_name}")
         self.logger.info(
-            f"Target success rate: {phase_config['success_criteria']['min_success_rate']}%"
+            f"Target success rate: {phase_config['success_criteria']['min_success_rate']}"
         )
 
-        # Create environment for this phase
         environment = self._create_phase_environment(phase_config["config"])
 
-        # Phase training loop
         phase_episodes = 0
         phase_rewards = []
         phase_success_rates = []
         phase_energies = []
 
         max_timesteps = phase_config["timestep_allocation"]
-        evaluation_frequency = 10_000  # Evaluate every 10k timesteps
+        evaluation_frequency = 10_000
 
-        while self.phase_timestep < max_timesteps:
-            # Run training episode
+        while self.phase_timestep  max_timesteps:
             episode_result = self._run_phase_episode(environment)
 
-            # Update phase statistics
             phase_episodes += 1
             phase_rewards.append(episode_result["reward"])
             phase_energies.append(episode_result["energy"])
 
-            # Calculate recent success rate
-            if len(phase_rewards) >= 20:
-                recent_successes = sum(1 for r in phase_rewards[-20:] if r > 400)
-                success_rate = recent_successes / 20 * 100
+            if len(phase_rewards) = 20:
+                recent_successes = sum(1 for r in phase_rewards[-20:] if r  400)
+                success_rate = recent_successes / 20  100
                 phase_success_rates.append(success_rate)
 
-            # Periodic evaluation
-            if self.phase_timestep % evaluation_frequency == 0:
+            if self.phase_timestep  evaluation_frequency == 0:
                 current_performance = self._evaluate_phase_performance(environment)
                 self.logger.info(
                     f"{phase_name}: {self.phase_timestep:,}/{max_timesteps:,} steps, "
-                    f"{current_performance['success_rate']:.1f}% success"
+                    f"{current_performance['success_rate']:.1f} success"
                 )
 
-            # Check phase completion criteria
             if self._check_phase_completion(phase_config, phase_success_rates):
                 self.logger.info(f"{phase_name} completed early - success criteria met")
                 break
 
         phase_training_time = time.time() - phase_start_time
 
-        # Final phase evaluation
         final_performance = self._evaluate_phase_performance(
             environment, num_episodes=50
         )
 
-        # Phase results
         phase_results = {
             "phase_name": phase_name,
             "phase_index": self.current_phase_index,
             "success": final_performance["success_rate"]
-            >= phase_config["success_criteria"]["min_success_rate"],
+            = phase_config["success_criteria"]["min_success_rate"],
             "timesteps_used": self.phase_timestep,
             "episodes_trained": phase_episodes,
             "training_time_hours": phase_training_time / 3600,
@@ -257,7 +210,7 @@ class FullCurriculumTrainer:
         self.logger.info(f"{phase_name} completed:")
         self.logger.info(f"  Success: {phase_results['success']}")
         self.logger.info(
-            f"  Final success rate: {final_performance['success_rate']:.1f}%"
+            f"  Final success rate: {final_performance['success_rate']:.1f}"
         )
         self.logger.info(f"  Training time: {phase_training_time/3600:.1f}h")
         self.logger.info(f"  Timesteps used: {self.phase_timestep:,}")
@@ -266,11 +219,10 @@ class FullCurriculumTrainer:
 
     def _create_phase_environment(
         self, phase_config: Dict[str, Any]
-    ) -> DroneEnvironment:
-        """Create environment for specific phase."""
+    ) - DroneEnvironment:
+
         env_config = self.config.environment.copy()
 
-        # Apply phase-specific settings
         env_config["building"]["floors"] = phase_config["floors"]
         env_config["obstacles"]["density"] = phase_config["obstacle_density"]
         env_config["obstacles"]["dynamic_obstacles"] = phase_config["dynamic_obstacles"]
@@ -281,7 +233,6 @@ class FullCurriculumTrainer:
         if "human_obstacles" in phase_config:
             env_config["obstacles"]["human_obstacles"] = phase_config["human_obstacles"]
 
-        # Complexity-based adjustments
         complexity = phase_config.get("complexity_level", "medium")
         if complexity == "low":
             env_config["obstacles"]["density"] = min(
@@ -297,8 +248,8 @@ class FullCurriculumTrainer:
 
         return DroneEnvironment(env_config)
 
-    def _run_phase_episode(self, environment: DroneEnvironment) -> Dict[str, Any]:
-        """Run single episode within a phase."""
+    def _run_phase_episode(self, environment: DroneEnvironment) - Dict[str, Any]:
+
         observation = environment.reset()
 
         episode_reward = 0.0
@@ -306,14 +257,11 @@ class FullCurriculumTrainer:
         episode_steps = 0
         done = False
 
-        while not done and episode_steps < 1000:  # Episode step limit
-            # Get action from policy
+        while not done and episode_steps  1000:
             action, _, _ = self.agent.select_action(observation, training=True)
 
-            # Execute action
             next_observation, reward, done, info = environment.step(action)
 
-            # Update episode metrics
             episode_reward += reward
             episode_energy += info.get("energy_consumption", 0.0)
             episode_steps += 1
@@ -335,8 +283,8 @@ class FullCurriculumTrainer:
 
     def _evaluate_phase_performance(
         self, environment: DroneEnvironment, num_episodes: int = 20
-    ) -> Dict[str, Any]:
-        """Evaluate current policy performance on phase environment."""
+    ) - Dict[str, Any]:
+
         eval_results = []
 
         for episode in range(num_episodes):
@@ -347,8 +295,7 @@ class FullCurriculumTrainer:
             done = False
             steps = 0
 
-            while not done and steps < 1000:
-                # Deterministic action selection for evaluation
+            while not done and steps  1000:
                 action, _, _ = self.agent.select_action(observation, deterministic=True)
                 observation, reward, done, info = environment.step(action)
 
@@ -365,42 +312,39 @@ class FullCurriculumTrainer:
                 }
             )
 
-        # Calculate metrics
         successes = [r for r in eval_results if r["success"]]
 
         return {
-            "success_rate": len(successes) / len(eval_results) * 100,
+            "success_rate": len(successes) / len(eval_results)  100,
             "mean_energy": (
                 np.mean([r["energy"] for r in successes]) if successes else 0
             ),
-            "collision_rate": np.mean([r["collision"] for r in eval_results]) * 100,
+            "collision_rate": np.mean([r["collision"] for r in eval_results])  100,
             "mean_reward": np.mean([r["reward"] for r in eval_results]),
         }
 
     def _check_phase_completion(
         self, phase_config: Dict[str, Any], success_rates: List[float]
-    ) -> bool:
-        """Check if phase completion criteria are met."""
-        if len(success_rates) < 10:  # Need enough data
+    ) - bool:
+
+        if len(success_rates)  10:
             return False
 
         criteria = phase_config["success_criteria"]
 
-        # Check recent success rate
         recent_success_rate = np.mean(success_rates[-10:])
         min_success_rate = criteria["min_success_rate"]
 
-        # Check minimum episodes
         min_episodes = criteria.get("min_episodes", 100)
         episodes_completed = len(success_rates)
 
         return (
-            recent_success_rate >= min_success_rate
-            and episodes_completed >= min_episodes
+            recent_success_rate = min_success_rate
+            and episodes_completed = min_episodes
         )
 
-    def _get_final_performance(self) -> Dict[str, Any]:
-        """Get final performance across all phases."""
+    def _get_final_performance(self) - Dict[str, Any]:
+
         if not self.phase_results:
             return {}
 
@@ -410,21 +354,18 @@ class FullCurriculumTrainer:
             "final_success_rate": final_phase["final_success_rate"],
             "final_energy_consumption": final_phase["final_energy_consumption"],
             "final_collision_rate": final_phase["final_collision_rate"],
-            "target_achieved": final_phase["final_success_rate"] >= 96.0,
+            "target_achieved": final_phase["final_success_rate"] = 96.0,
         }
 
     def _save_curriculum_results(self, results: Dict[str, Any]):
-        """Save curriculum training results."""
-        # Save to models directory
+
         output_dir = Path("models/curriculum_training")
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save complete results
         results_file = output_dir / "curriculum_results.json"
         with open(results_file, "w") as f:
             json.dump(results, f, indent=2, default=str)
 
-        # Save phase-by-phase summary
         summary_file = output_dir / "phase_summary.json"
         phase_summary = {
             "phases": [
@@ -449,7 +390,6 @@ class FullCurriculumTrainer:
 
         self.logger.info(f"Curriculum results saved to {output_dir}")
 
-
 def main():
     parser = argparse.ArgumentParser(description="Full curriculum training")
     parser.add_argument(
@@ -467,36 +407,32 @@ def main():
 
     args = parser.parse_args()
 
-    # Create trainer
     trainer = FullCurriculumTrainer(args.config)
 
-    # Run full curriculum
     results = trainer.train_full_curriculum()
 
-    # Print results summary
-    print("\n" + "=" * 70)
-    print("🎓 CURRICULUM TRAINING COMPLETED!")
-    print("=" * 70)
+    print("\n" + "="  70)
+    print(" CURRICULUM TRAINING COMPLETED!")
+    print("="  70)
 
     for i, phase in enumerate(results["phase_results"]):
-        status = "✅ SUCCESS" if phase["success"] else "❌ FAILED"
+        status = " SUCCESS" if phase["success"] else " FAILED"
         print(f"Phase {i+1} ({phase['phase_name']}): {status}")
-        print(f"  Success Rate: {phase['final_success_rate']:.1f}%")
+        print(f"  Success Rate: {phase['final_success_rate']:.1f}")
         print(f"  Training Time: {phase['training_time_hours']:.1f}h")
         print(f"  Timesteps: {phase['timesteps_used']:,}")
 
     final_perf = results["final_performance"]
     print(f"\nFinal Performance:")
-    print(f"  Success Rate: {final_perf['final_success_rate']:.1f}%")
+    print(f"  Success Rate: {final_perf['final_success_rate']:.1f}")
     print(f"  Energy Consumption: {final_perf['final_energy_consumption']:.0f}J")
     print(
-        f"  Target Achieved: {'✅ YES' if final_perf['target_achieved'] else '❌ NO'}"
+        f"  Target Achieved: {' YES' if final_perf['target_achieved'] else ' NO'}"
     )
 
     print(f"\nTotal Training Time: {results['total_training_time_hours']:.1f} hours")
     print(f"Total Timesteps: {results['total_timesteps']:,}")
-    print("=" * 70)
-
+    print("="  70)
 
 if __name__ == "__main__":
     main()

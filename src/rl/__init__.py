@@ -1,14 +1,5 @@
-"""
-Reinforcement Learning Module
-PPO-based energy-aware control for indoor drone delivery.
-"""
-
 import logging
 import time
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CORE COMPONENTS: Import trực tiếp absolute paths
-# ─────────────────────────────────────────────────────────────────────────────
 
 from src.rl.agents.ppo_agent import PPOAgent, PPOConfig
 from src.rl.agents.actor_critic import ActorCriticNetwork, NetworkConfig
@@ -28,13 +19,10 @@ __all__ = [
     "NetworkConfig",
     "DroneEvaluator",
     "PPOTrainer",
-    "initialize_rl_system",  # ← THÊM VÀO ĐÂY
+    "initialize_rl_system",
     "create_agent_from_config",
 ]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# SYSTEM INFO
-# ─────────────────────────────────────────────────────────────────────────────
 SYSTEM_INFO = {
     "algorithm": "Proximal Policy Optimization (PPO)",
     "observation_space": "35D continuous",
@@ -46,16 +34,14 @@ SYSTEM_INFO = {
     },
 }
 
+def get_system_info() - dict:
 
-def get_system_info() -> dict:
-    """Get RL system information."""
     return SYSTEM_INFO.copy()
-
 
 def create_ppo_agent(
     observation_dim: int = 35, action_dim: int = 4, config: dict = None
-) -> PPOAgent:
-    """Factory function to create PPO agent."""
+) - PPOAgent:
+
     if config is None:
         config = {}
 
@@ -76,7 +62,6 @@ def create_ppo_agent(
         "activation": "tanh",
     }
 
-    # Merge configs
     for key, value in config.items():
         if key == "ppo" and isinstance(value, dict):
             default_config["ppo"].update(value)

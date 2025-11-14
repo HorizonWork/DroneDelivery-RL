@@ -1,16 +1,3 @@
-"""
-AirSim Bridge - FIXED VERSION
-Manages connection and communication with AirSim simulation environment.
-
-CRITICAL FIXES:
-1. NO auto-connect in __init__() - prevents hanging
-2. Manual connect() must be called AFTER initialization
-3. Proper error handling with timeouts
-4. Implements exact drone spawn location from config
-5. Added emergency_stop() method
-6. Takeoff with altitude verification
-"""
-
 import nest_asyncio
 nest_asyncio.apply()
 import airsim
@@ -23,111 +10,86 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 import cv2
 
-
-@dataclass
+dataclass
 class DroneState:
-    """Complete drone state from AirSim."""
-    
+
     position: Tuple[float, float, float]
-    orientation: Tuple[float, float, float, float]  # quaternion (w, x, y, z)
+    orientation: Tuple[float, float, float, float]
     linear_velocity: Tuple[float, float, float]
     angular_velocity: Tuple[float, float, float]
     timestamp: float
 
-
-@dataclass
+dataclass
 class SensorData:
-    """Sensor data bundle from AirSim."""
-    
+
     stereo_left: Optional[np.ndarray]
     stereo_right: Optional[np.ndarray]
     depth_image: Optional[np.ndarray]
     imu_data: Dict[str, Any]
     timestamp: float
 
-
 class AirSimBridge:
-    """
-    Bridge to AirSim simulation environment.
-    Handles drone control, sensor data collection, and world state queries.
-    
-    IMPORTANT: Call connect() manually AFTER creating instance!
-    """
-    
+
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize AirSim bridge configuration ONLY.
-        Does NOT connect to AirSim - call connect() separately!
-        
-        Args:
-            config: Configuration dictionary
-        """
+
         if config is None:
             config = {}
-        
+
         self.config = config
         self.logger = logging.getLogger(__name__)
-        
-        # Connection settings
+
         self.drone_name = config.get("drone_name", "Drone1")
-        
+
         if "spawn_location" not in config:
             raise ValueError("spawn_location must be set in AirSim config")
-        
+
         spawn_location = config["spawn_location"]
         if len(spawn_location) != 3:
             raise ValueError("spawn_location must contain exactly 3 values (x, y, z)")
-        
+
         self.spawn_location = tuple(float(value) for value in spawn_location)
-        
+
         spawn_orientation = config.get("spawn_orientation", (0.0, 0.0, 0.0))
         if len(spawn_orientation) != 3:
             raise ValueError("spawn_orientation must contain 3 values (pitch, roll, yaw)")
         self.spawn_orientation = tuple(float(value) for value in spawn_orientation)
-        
-        # ✅ FIX: Validate spawn location BEFORE logging
+
         self._sanitize_spawn_location()
-        
-        # Control settings
-        self.max_velocity = config.get("max_velocity", 5.0)  # m/s
-        self.max_yaw_rate = config.get("max_yaw_rate", 1.0)  # rad/s
-        self.control_frequency = config.get("control_frequency", 20.0)  # Hz
-        
-        # Camera settings (exact match with report: 30Hz stereo)
-        self.camera_frequency = config.get("camera_frequency", 30.0)  # Hz
+
+        self.max_velocity = config.get("max_velocity", 5.0)
+        self.max_yaw_rate = config.get("max_yaw_rate", 1.0)
+        self.control_frequency = config.get("control_frequency", 20.0)
+
+        self.camera_frequency = config.get("camera_frequency", 30.0)
         self.camera_resolution = tuple(config.get("camera_resolution", (640, 480)))
-        
-        # IMU settings (exact match with report: 200Hz)
-        self.imu_frequency = config.get("imu_frequency", 200.0)  # Hz
-        
-        # AirSim client - NOT CONNECTED YET!
+
+        self.imu_frequency = config.get("imu_frequency", 200.0)
+
         self.client: Optional[airsim.MultirotorClient] = None
         self.is_connected = False
-        
-        # State tracking
+
         self.last_drone_state: Optional[DroneState] = None
         self.last_sensor_data: Optional[SensorData] = None
-        
-        # Safety settings
-        self.collision_threshold = config.get("collision_threshold", 0.1)  # meters
-        self.ground_clearance = config.get("ground_clearance", 0.5)  # meters
-        
+
+        self.collision_threshold = config.get("collision_threshold", 0.1)
+        self.ground_clearance = config.get("ground_clearance", 0.5)
+
         self.rpc_host = config.get("host", "127.0.0.1")
         self.rpc_port = config.get("port", 41451)
         self.rpc_timeout = config.get("rpc_timeout", 10.0)
-        
+
         self.logger.info(f"AirSimBridge initialized for drone: {self.drone_name}")
         self.logger.info(f"Spawn location: {self.spawn_location}")
-    
-    def _safe_airsim_call(self, func, *args, **kwargs):
-        """Safely call AirSim API functions, handling IOLoop issues."""
+
+    def _safe_airsim_call(self, func, args, kwargs):
+
         try:
-            return func(*args, **kwargs)
+            return func(args, kwargs)
         except RuntimeError as e:
             if "IOLoop is already running" in str(e) or "already running" in str(e).lower():
                 self.logger.warning(f"IOLoop error, retrying: {e}")
                 try:
-                    return func(*args, **kwargs)
+                    return func(args, kwargs)
                 except:
                     return None
             else:
@@ -135,115 +97,91 @@ class AirSimBridge:
         except Exception as e:
             self.logger.error(f"AirSim API error: {e}")
             return None
-    
-    def _sanitize_spawn_location(self) -> Tuple[float, float, float]:
-        """
-        Ensure spawn location obeys NED convention (z <= 0).
-        
-        Returns:
-            Tuple[float, float, float]: Validated spawn location
-        """
+
+    def _sanitize_spawn_location(self) - Tuple[float, float, float]:
+
         x, y, z = self.spawn_location
-        if z > 0:
-            self.logger.warning("Spawn z=%.2f > 0 (NED). Forcing z=-3.0 for safety.", z)
+        if z  0:
+            self.logger.warning("Spawn z=.2f  0 (NED). Forcing z=-3.0 for safety.", z)
             z = -3.0
             self.spawn_location = (x, y, z)
         return self.spawn_location
-    
-    def connect(self, timeout: float = 10.0, max_retries: int = 3) -> bool:
-        """
-        Connect to AirSim simulation with retry logic.
-        MUST be called manually after __init__()!
-        
-        Args:
-            timeout: Connection timeout in seconds
-            max_retries: Maximum connection attempts
-            
-        Returns:
-            bool: True if connection successful
-        """
+
+    def connect(self, timeout: float = 10.0, max_retries: int = 3) - bool:
+
         if self.is_connected:
             self.logger.warning("Already connected to AirSim")
             return True
-        
+
         for attempt in range(1, max_retries + 1):
             try:
                 self.logger.info(f"Connecting to AirSim (attempt {attempt}/{max_retries})...")
-                
-                # Create client with timeout
+
                 self.client = airsim.MultirotorClient()
                 self.client.confirmConnection()
-                
+
                 self.logger.info("Testing AirSim connection...")
                 self.client.ping()
-                
-                # Determine vehicle name
+
                 available = self.client.listVehicles()
                 if available:
                     self.logger.info(f"Vehicles reported by AirSim: {available}")
                     if self.drone_name not in available:
                         self.logger.warning(
-                            "Vehicle '%s' not found. Falling back to '%s'.",
+                            "Vehicle 's' not found. Falling back to 's'.",
                             self.drone_name,
                             available[0],
                         )
                         self.drone_name = available[0]
                 else:
                     self.logger.warning(
-                        "AirSim returned no vehicles; continuing with '%s'.",
+                        "AirSim returned no vehicles; continuing with 's'.",
                         self.drone_name,
                     )
-                
-                # Enable API control
+
                 self.logger.info("Enabling API control...")
                 self.client.enableApiControl(True, self.drone_name)
-                
-                # Arm drone
+
                 self.logger.info("Arming drone...")
                 self.client.armDisarm(True, self.drone_name)
-                
+
                 self.is_connected = True
                 self.logger.info(f"Connected to AirSim. Drone: {self.drone_name}")
                 return True
-                
+
             except Exception as e:
                 self.logger.error(f"Connection attempt {attempt} failed: {e}")
-                if attempt < max_retries:
-                    time.sleep(2.0 * attempt)  # Exponential backoff
+                if attempt  max_retries:
+                    time.sleep(2.0  attempt)
                     continue
-                
+
         self.logger.error(f"Failed to connect after {max_retries} attempts")
         self.is_connected = False
         self.client = None
         return False
-    
+
     def disconnect(self):
-        """Disconnect from AirSim."""
+
         if self.client and self.is_connected:
             try:
                 self.logger.info("Disarming drone...")
                 self.client.armDisarm(False, self.drone_name)
-                
+
                 self.logger.info("Disabling API control...")
                 self.client.enableApiControl(False, self.drone_name)
-                
+
                 self.logger.info("Disconnected from AirSim")
             except Exception as e:
                 self.logger.error(f"Error during disconnect: {e}")
             finally:
                 self.is_connected = False
                 self.client = None
-    
+
     def reset_drone(self, to_spawn: bool = True):
-        """
-        Reset drone to spawn location.
-        
-        Args:
-            to_spawn: If True, reset to spawn location. If False, just reset state.
-        """
+
         if not self.is_connected:
             raise RuntimeError("Not connected to AirSim")
-        
+
         try:
             self.logger.info("Resetting drone...")
             try:
@@ -254,8 +192,7 @@ class AirSimBridge:
                     self._rpc_call("reset")
                 else:
                     raise
-            
-            # Re-enable API control after reset
+
             try:
                 self.client.enableApiControl(True, self.drone_name)
                 self.client.armDisarm(True, self.drone_name)
@@ -266,7 +203,7 @@ class AirSimBridge:
                     self._rpc_call("armDisarm", True, self.drone_name)
                 else:
                     raise
-            
+
             if to_spawn:
                 spawn_location = self._sanitize_spawn_location()
                 pose = airsim.Pose(
@@ -276,12 +213,12 @@ class AirSimBridge:
                         spawn_location[2],
                     ),
                     orientation_val=airsim.to_quaternion(
-                        self.spawn_orientation[0],  # pitch
-                        self.spawn_orientation[1],  # roll
-                        self.spawn_orientation[2],  # yaw
+                        self.spawn_orientation[0],
+                        self.spawn_orientation[1],
+                        self.spawn_orientation[2],
                     ),
                 )
-                
+
                 try:
                     self.client.simSetVehiclePose(pose, True, self.drone_name)
                 except RuntimeError as err:
@@ -290,19 +227,18 @@ class AirSimBridge:
                         self._rpc_call("simSetVehiclePose", pose, True, self.drone_name)
                     else:
                         raise
-                
+
                 self.logger.info(f"Drone reset to spawn: {self.spawn_location}")
             else:
                 self.logger.info("Drone reset (current position)")
-            
-            # Wait for stabilization
+
             time.sleep(0.5)
-            
+
         except Exception as e:
             self.logger.error(f"Reset failed: {e}")
             raise
-    
-    def _default_drone_state(self) -> DroneState:
+
+    def _default_drone_state(self) - DroneState:
         return DroneState(
             position=(0.0, 0.0, 0.0),
             orientation=(1.0, 0.0, 0.0, 0.0),
@@ -310,8 +246,8 @@ class AirSimBridge:
             angular_velocity=(0.0, 0.0, 0.0),
             timestamp=time.time(),
         )
-    
-    def _state_from_multirotor(self, multi_state: Any) -> DroneState:
+
+    def _state_from_multirotor(self, multi_state: Any) - DroneState:
         kin = multi_state.kinematics_estimated
         position = (
             float(kin.position.x_val),
@@ -341,18 +277,18 @@ class AirSimBridge:
             angular_velocity=angular_velocity,
             timestamp=time.time(),
         )
-    
-    def _rpc_call(self, method: str, *args):
-        """Perform a standalone RPC call to avoid shared buffer reuse."""
+
+    def _rpc_call(self, method: str, args):
+
         address = msgpackrpc.Address(self.rpc_host, self.rpc_port)
         client = msgpackrpc.Client(address, timeout=self.rpc_timeout)
         try:
-            return client.call(method, *args)
+            return client.call(method, args)
         finally:
             client.close()
-    
-    @staticmethod
-    def _ensure_str_keys(obj: Any) -> Any:
+
+    staticmethod
+    def _ensure_str_keys(obj: Any) - Any:
         if isinstance(obj, dict):
             return {
                 (k.decode("utf-8") if isinstance(k, bytes) else k): AirSimBridge._ensure_str_keys(v)
@@ -361,9 +297,9 @@ class AirSimBridge:
         if isinstance(obj, list):
             return [AirSimBridge._ensure_str_keys(v) for v in obj]
         return obj
-    
+
     def _get_multirotor_state_safe(self):
-        """Fetch multirotor state using a fresh msgpack payload to avoid buffer reuse issues."""
+
         try:
             response = self._rpc_call("getMultirotorState", self.drone_name)
             if isinstance(response, dict):
@@ -377,18 +313,18 @@ class AirSimBridge:
         except Exception as exc:
             self.logger.error(f"Raw AirSim state fetch failed: {exc}")
             raise
-    
-    def get_drone_state(self) -> DroneState:
-        """Get current drone state from AirSim - FIXED VERSION."""
+
+    def get_drone_state(self) - DroneState:
+
         if not self.is_connected:
             raise RuntimeError("Not connected to AirSim")
-        
+
         try:
             multi_state = self._get_multirotor_state_safe()
             state = self._state_from_multirotor(multi_state)
             self.last_drone_state = state
             return state
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get drone state: {e}")
             if self.last_drone_state is not None:
@@ -396,22 +332,15 @@ class AirSimBridge:
                 return self.last_drone_state
             self.logger.warning("Returning default drone state")
             return self._default_drone_state()
-    
-    def get_sensor_data(self) -> SensorData:
-        """
-        Get sensor data bundle from AirSim.
-        Includes stereo cameras, depth, and IMU as per report specs.
-        
-        Returns:
-            SensorData: Complete sensor data bundle
-        """
+
+    def get_sensor_data(self) - SensorData:
+
         if not self.is_connected:
             raise RuntimeError("Not connected to AirSim")
-        
+
         timestamp = time.time()
-        
+
         try:
-            # Get stereo camera images (30Hz as per report)
             responses = self.client.simGetImages(
                 [
                     airsim.ImageRequest("front_left", airsim.ImageType.Scene, False, False),
@@ -420,34 +349,30 @@ class AirSimBridge:
                 ],
                 self.drone_name,
             )
-            
-            # Process stereo left
+
             stereo_left = None
-            if len(responses) > 0 and len(responses[0].image_data_uint8) > 0:
+            if len(responses)  0 and len(responses[0].image_data_uint8)  0:
                 img1d = np.frombuffer(responses[0].image_data_uint8, dtype=np.uint8).copy()
-                if img1d.size > 0:
+                if img1d.size  0:
                     stereo_left = img1d.reshape(responses[0].height, responses[0].width, 3)
                     stereo_left = cv2.cvtColor(stereo_left, cv2.COLOR_BGR2RGB)
-            
-            # Process stereo right
+
             stereo_right = None
-            if len(responses) > 1 and len(responses[1].image_data_uint8) > 0:
+            if len(responses)  1 and len(responses[1].image_data_uint8)  0:
                 img1d = np.frombuffer(responses[1].image_data_uint8, dtype=np.uint8).copy()
-                if img1d.size > 0:
+                if img1d.size  0:
                     stereo_right = img1d.reshape(responses[1].height, responses[1].width, 3)
                     stereo_right = cv2.cvtColor(stereo_right, cv2.COLOR_BGR2RGB)
-            
-            # Process depth image
+
             depth_image = None
-            if len(responses) > 2 and len(responses[2].image_data_float) > 0:
+            if len(responses)  2 and len(responses[2].image_data_float)  0:
                 depth_image = airsim.list_to_2d_float_array(
                     responses[2].image_data_float,
                     responses[2].width,
                     responses[2].height,
                 )
                 depth_image = np.array(depth_image, dtype=np.float32)
-            
-            # Get IMU data (200Hz as per report)
+
             imu_data_raw = self.client.getImuData(imu_name="Imu", vehicle_name=self.drone_name)
             imu_dict = {
                 "linear_acceleration": (
@@ -468,7 +393,7 @@ class AirSimBridge:
                 ),
                 "timestamp": imu_data_raw.time_stamp,
             }
-            
+
             sensor_data = SensorData(
                 stereo_left=stereo_left,
                 stereo_right=stereo_right,
@@ -476,10 +401,10 @@ class AirSimBridge:
                 imu_data=imu_dict,
                 timestamp=timestamp,
             )
-            
+
             self.last_sensor_data = sensor_data
             return sensor_data
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get sensor data: {e}")
             return SensorData(
@@ -489,29 +414,19 @@ class AirSimBridge:
                 imu_data={},
                 timestamp=timestamp,
             )
-    
+
     def send_velocity_command(
         self, vx: float, vy: float, vz: float, yaw_rate: float, duration: float = 0.05
     ):
-        """
-        Send body-frame velocity command to drone.
-        
-        Args:
-            vx: Forward velocity (m/s)
-            vy: Right velocity (m/s)
-            vz: Down velocity (m/s)
-            yaw_rate: Yaw rate (rad/s)
-            duration: Command duration (seconds)
-        """
+
         if not self.is_connected:
             raise RuntimeError("Not connected to AirSim")
-        
-        # Clamp velocities to safety limits
+
         vx = np.clip(vx, -self.max_velocity, self.max_velocity)
         vy = np.clip(vy, -self.max_velocity, self.max_velocity)
         vz = np.clip(vz, -self.max_velocity, self.max_velocity)
         yaw_rate = np.clip(yaw_rate, -self.max_yaw_rate, self.max_yaw_rate)
-        
+
         try:
             self.client.moveByVelocityBodyFrameAsync(
                 vx,
@@ -525,32 +440,25 @@ class AirSimBridge:
         except Exception as e:
             self.logger.error(f"Failed to send velocity command: {e}")
             raise
-    
-    def check_collision(self) -> bool:
-        """
-        Check if drone has collided with environment.
-        
-        Returns:
-            bool: True if collision detected
-        """
+
+    def check_collision(self) - bool:
+
         if not self.is_connected:
             return False
-        
+
         try:
             collision_info = self.client.simGetCollisionInfo(self.drone_name)
             return collision_info.has_collided
         except:
             return False
-    
-    # ✅ FIX: Add emergency_stop method
+
     def emergency_stop(self):
-        """Emergency stop - hover in place immediately."""
+
         if not self.is_connected:
             return
-        
+
         try:
             self.logger.error("EMERGENCY STOP - Hovering in place")
-            # Send zero velocity to hover
             self.client.moveByVelocityBodyFrameAsync(
                 0, 0, 0, 1.0,
                 drivetrain=airsim.DrivetrainType.MaxDegreeOfFreedom,
@@ -559,25 +467,18 @@ class AirSimBridge:
             ).join()
         except Exception as e:
             self.logger.error(f"Emergency stop failed: {e}")
-    
-    def get_landing_targets(self) -> List[Dict[str, Any]]:
-        """
-        Get positions of landing targets in environment.
-        Returns Landing_101-506 targets as per report specification.
-        
-        Returns:
-            List of target dictionaries with name and position
-        """
+
+    def get_landing_targets(self) - List[Dict[str, Any]]:
+
         if not self.is_connected:
             return []
-        
+
         targets = []
-        
-        # Generate Landing_101-506 targets (5 floors × 6 targets per floor)
-        for floor in range(1, 6):  # Floors 1-5
-            for target_num in range(1, 7):  # Targets 1-6 per floor
+
+        for floor in range(1, 6):
+            for target_num in range(1, 7):
                 target_name = f"Landing_{floor}{target_num:02d}"
-                
+
                 try:
                     pose = self.client.simGetObjectPose(target_name)
                     position = (
@@ -585,101 +486,69 @@ class AirSimBridge:
                         pose.position.y_val,
                         pose.position.z_val,
                     )
-                    
+
                     targets.append({"name": target_name, "position": position, "floor": floor})
                 except:
-                    # Generate synthetic position if not found
-                    floor_height = -floor * 3.0  # NED: negative Z is up
+                    floor_height = -floor  3.0
                     x_positions = [4, 8, 12, 16, 20, 24]
                     y_position = 20.0
-                    
+
                     synthetic_position = (x_positions[target_num - 1], y_position, floor_height)
-                    
+
                     targets.append({
                         "name": target_name,
                         "position": synthetic_position,
                         "floor": floor,
                         "synthetic": True,
                     })
-        
+
         return targets
-    
-    def get_battery_level(self) -> float:
-        """
-        Get drone battery level (simplified model).
-        
-        Returns:
-            float: Battery level as fraction [0, 1]
-        """
+
+    def get_battery_level(self) - float:
+
         return 1.0
-    
-    # def takeoff(self, altitude: float = 1.0, timeout: float = 15.0) -> bool:
-        """
-        Takeoff to specified altitude with verification.
-        
-        Args:
-            altitude: Target altitude in meters (positive up)
-            timeout: Operation timeout
-            
-        Returns:
-            bool: True if takeoff successful
-        """
+
         if not self.is_connected:
             return False
-        
+
         try:
             self.logger.info(f"Taking off to {altitude}m...")
             self.client.takeoffAsync(timeout_sec=timeout, vehicle_name=self.drone_name).join()
-            
-            # Move to desired altitude
+
             self.client.moveToZAsync(
                 -altitude, 1.0, timeout_sec=timeout, vehicle_name=self.drone_name
             ).join()
-            
-            # ✅ FIX: Verify altitude reached
+
             max_verification_time = 5.0
             start_time = time.time()
-            while time.time() - start_time < max_verification_time:
+            while time.time() - start_time  max_verification_time:
                 state = self.get_drone_state()
                 current_altitude = abs(state.position[2])
-                if abs(current_altitude - altitude) < 0.5:  # Within 0.5m tolerance
+                if abs(current_altitude - altitude)  0.5:
                     self.logger.info(f"Takeoff completed - altitude: {current_altitude:.2f}m")
                     return True
                 time.sleep(0.5)
-            
+
             self.logger.warning(f"Takeoff altitude verification timeout")
-            return True  # Still return True if close enough
-            
+            return True
+
         except Exception as e:
             self.logger.error(f"Takeoff failed: {e}")
             return False
 
-    def takeoff(self, altitude: float = 3.0, timeout: float = 20.0) -> bool:
-        """
-        Takeoff to a specified relative altitude and verify.
+    def takeoff(self, altitude: float = 3.0, timeout: float = 20.0) - bool:
 
-        Args:
-            altitude: Target altitude in meters (positive up) relative to current position.
-            timeout: Operation timeout.
-
-        Returns:
-            bool: True if takeoff successful.
-        """
         if not self.is_connected:
             return False
 
         try:
-            # --- DEBATE AI FIX ---
             self.logger.info(
                 f"Initiating takeoff, will stabilize at {altitude}m relative altitude..."
             )
 
-            # Step 1: Get the current Z position before takeoff
             initial_state = self.get_drone_state()
             initial_z = initial_state.position[2]
 
-            # Step 2: Command the takeoff. This is an asynchronous call.
-            # AirSim's controller will handle reaching a stable hover altitude.
             self.client.takeoffAsync(
                 timeout_sec=timeout, vehicle_name=self.drone_name
             ).join()
@@ -687,19 +556,16 @@ class AirSimBridge:
                 "Takeoff command completed, now verifying altitude stability."
             )
 
-            # Step 3: Wait and verify that the drone has reached the target altitude.
-            # The target Z coordinate is the initial Z minus the desired altitude.
             target_z = initial_z - altitude
 
             start_time = time.time()
-            verification_timeout = 10.0  # Give it 10 seconds to stabilize
+            verification_timeout = 10.0
 
-            while time.time() - start_time < verification_timeout:
+            while time.time() - start_time  verification_timeout:
                 current_state = self.get_drone_state()
                 current_z = current_state.position[2]
 
-                # Check if we are within a tolerance band of the target Z coordinate
-                if abs(current_z - target_z) < 0.5:
+                if abs(current_z - target_z)  0.5:
                     self.logger.info(
                         f"Takeoff successful. Stabilized at altitude {abs(current_z - initial_z):.2f}m (world z: {current_z:.2f}m)"
                     )
@@ -711,60 +577,44 @@ class AirSimBridge:
                 f"Takeoff verification timeout! Reached altitude {abs(final_state.position[2] - initial_z):.2f}m, "
                 f"but target was {altitude}m."
             )
-            # Even if it times out, we'll consider it "done" to avoid getting stuck.
-            # The subsequent logic will have to deal with the incorrect altitude.
             return True
-            # --- END OF FIX ---
 
         except Exception as e:
             self.logger.error(f"Takeoff failed with exception: {e}")
             return False
 
-    def land(self, timeout: float = 15.0) -> bool:
-        """
-        Land the drone safely.
-        
-        Args:
-            timeout: Operation timeout
-            
-        Returns:
-            bool: True if landing successful
-        """
+    def land(self, timeout: float = 15.0) - bool:
+
         if not self.is_connected:
             return False
-        
+
         try:
             self.logger.info("Landing...")
             self.client.landAsync(timeout_sec=timeout, vehicle_name=self.drone_name).join()
             self.logger.info("Landing completed")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Landing failed: {e}")
             return False
-    
-    def is_alive(self) -> bool:
-        """
-        Check if AirSim connection is still alive.
-        
-        Returns:
-            bool: True if connection is active
-        """
+
+    def is_alive(self) - bool:
+
         if not self.is_connected or not self.client:
             return False
-        
+
         try:
             self.client.ping()
             return True
         except:
             self.is_connected = False
             return False
-    
+
     def __enter__(self):
-        """Context manager entry."""
+
         self.connect()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit."""
+
         self.disconnect()

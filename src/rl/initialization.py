@@ -1,8 +1,3 @@
-"""
-RL System Initialization
-Helper functions for initializing RL components.
-"""
-
 import torch
 import logging
 from typing import Dict, Any, Optional, Tuple
@@ -12,20 +7,8 @@ import yaml
 from src.rl.agents.ppo_agent import PPOAgent, PPOConfig
 from src.rl.agents.actor_critic import ActorCriticNetwork, NetworkConfig
 
+def initialize_rl_system(rl_config: Dict[str, Any]) - Dict[str, Any]:
 
-def initialize_rl_system(rl_config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Initialize complete RL system with agent and components.
-
-    Args:
-        rl_config: RL configuration dictionary
-
-    Returns:
-        Dictionary containing initialized RL components:
-            - 'agent': PPOAgent instance
-            - 'config': PPO configuration
-            - 'device': torch device
-    """
     logger = logging.getLogger(__name__)
     logger.info("Initializing RL system...")
 
@@ -39,15 +22,12 @@ def initialize_rl_system(rl_config: Dict[str, Any]) -> Dict[str, Any]:
     resolved_rl_config = _deep_merge_dicts(resolved_rl_config, rl_config)
     rl_config = resolved_rl_config
 
-    # Device setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Extract dimensions from config
-    observation_dim = rl_config.get("observation_dim", 40)  # Default from report
-    action_dim = rl_config.get("action_dim", 4)  # [vx, vy, vz, yaw_rate]
+    observation_dim = rl_config.get("observation_dim", 40)
+    action_dim = rl_config.get("action_dim", 4)
 
-    # Create PPO configuration
     ppo_config = PPOConfig(
         learning_rate=rl_config.get("learning_rate", 3e-4),
         rollout_length=rl_config.get("rollout_length", 2048),
@@ -61,18 +41,13 @@ def initialize_rl_system(rl_config: Dict[str, Any]) -> Dict[str, Any]:
         max_grad_norm=rl_config.get("max_grad_norm", 0.5),
     )
 
-    # Create network configuration
     network_config = NetworkConfig(
         observation_dim=40,
         action_dim=4,
         hidden_sizes=[256, 128, 64],
         activation="tanh",
-        # use_layer_norm=rl_config.get('use_layer_norm', False),
-        # use_gae=rl_config.get('use_gae', True),
-        # normalize_advantages=rl_config.get('normalize_advantages', True),
     )
 
-    # Initialize agent
     agent = PPOAgent(
         observation_dim=observation_dim, action_dim=action_dim, config=rl_config
     )
@@ -91,17 +66,8 @@ def initialize_rl_system(rl_config: Dict[str, Any]) -> Dict[str, Any]:
         "action_dim": action_dim,
     }
 
+def create_agent_from_config(config_path: str) - PPOAgent:
 
-def create_agent_from_config(config_path: str) -> PPOAgent:
-    """
-    Create PPOAgent from configuration file.
-
-    Args:
-        config_path: Path to configuration file
-
-    Returns:
-        Initialized PPOAgent
-    """
     from src.utils.config_loader import load_config
 
     config = load_config(config_path)
@@ -109,9 +75,8 @@ def create_agent_from_config(config_path: str) -> PPOAgent:
 
     return rl_system["agent"]
 
+def _deep_merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) - Dict[str, Any]:
 
-def _deep_merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively merge two dictionaries."""
     result = dict(base) if isinstance(base, dict) else {}
     for key, value in (override or {}).items():
         if (
@@ -124,11 +89,10 @@ def _deep_merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[st
             result[key] = value
     return result
 
-
 def _load_hyperparameters(
     path_value: Optional[str],
-) -> Tuple[Dict[str, Any], Optional[str]]:
-    """Load hyperparameter YAML file if provided."""
+) - Tuple[Dict[str, Any], Optional[str]]:
+
     if not path_value:
         return {}, None
 
@@ -138,7 +102,7 @@ def _load_hyperparameters(
 
     if not path.exists():
         logging.getLogger(__name__).warning(
-            "Hyperparameter file not found at %s. Using inline RL config.", path
+            "Hyperparameter file not found at s. Using inline RL config.", path
         )
         return {}, None
 
@@ -148,6 +112,6 @@ def _load_hyperparameters(
             return data, str(path)
     except Exception as exc:
         logging.getLogger(__name__).error(
-            "Failed to read hyperparameter file %s: %s", path, exc
+            "Failed to read hyperparameter file s: s", path, exc
         )
         return {}, None

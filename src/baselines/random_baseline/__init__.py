@@ -1,5 +1,3 @@
-"""Random baseline implementation."""
-
 from .random_agent import RandomAgent
 from .evaluator import RandomEvaluator
 

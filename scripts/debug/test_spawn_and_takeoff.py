@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Smoke test: reset AirSim environment multiple times and verify spawn/takeoff.
-"""
-
 import argparse
 import logging
 import sys
@@ -23,8 +18,7 @@ if __name__ == "__main__":
 from src.utils import load_config
 from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
 
-
-def parse_args() -> argparse.Namespace:
+def parse_args() - argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Spawn + takeoff smoke test for DroneDelivery-RL"
     )
@@ -54,35 +48,33 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
-def make_env_config(config: Any) -> Dict[str, Any]:
+def make_env_config(config: Any) - Dict[str, Any]:
     env_cfg = getattr(config, "environment", {})
     if isinstance(env_cfg, dict):
         return deepcopy(env_cfg)
     return dict(env_cfg)
 
-
-def main() -> None:
+def main() - None:
     args = parse_args()
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        format="(asctime)s - (levelname)s - (message)s",
     )
 
     config = load_config(args.config)
     env_config = make_env_config(config)
-    logging.info("Loaded config from %s", args.config)
+    logging.info("Loaded config from s", args.config)
 
     env: DroneEnvironment = DroneEnvironment(env_config)
     alt_target = getattr(env, "initial_takeoff_altitude", 3.0)
 
     try:
         for attempt in range(1, args.resets + 1):
-            logging.info("=== Reset %d/%d ===", attempt, args.resets)
+            logging.info("=== Reset d/d ===", attempt, args.resets)
             try:
                 observation, info = env.reset()
-            except Exception as exc:  # Requires live AirSim
-                logging.error("Reset failed: %s", exc)
+            except Exception as exc:
+                logging.error("Reset failed: s", exc)
                 break
 
             spawn_cfg = info.get("spawn_location", env.airsim_bridge.spawn_location)
@@ -93,16 +85,16 @@ def main() -> None:
             actual_position = drone_state.position
             actual_altitude = abs(actual_position[2])
             altitude_diff = abs(actual_altitude - alt_target)
-            passed = altitude_diff <= args.alt_tolerance
+            passed = altitude_diff = args.alt_tolerance
 
-            logging.info("Observation shape: %s", np.shape(observation))
+            logging.info("Observation shape: s", np.shape(observation))
             logging.info(
-                "Commanded spawn=%s | orientation=%s",
+                "Commanded spawn=s  orientation=s",
                 tuple(round(v, 3) for v in spawn_cfg),
                 tuple(round(v, 3) for v in orientation_cfg),
             )
             logging.info(
-                "AirSim pose=%s | altitude=%.2fm | target=%.2fm | diff=%.3fm (%s)",
+                "AirSim pose=s  altitude=.2fm  target=.2fm  diff=.3fm (s)",
                 tuple(round(v, 3) for v in actual_position),
                 actual_altitude,
                 alt_target,
@@ -116,7 +108,6 @@ def main() -> None:
         logging.info("Test interrupted by user")
     finally:
         env.close()
-
 
 if __name__ == "__main__":
     main()

@@ -1,30 +1,18 @@
-"""
-Action Space Implementation
-Implements 4D continuous action space for body-frame velocity commands.
-"""
-
 import numpy as np
 import logging
 from typing import Dict, Tuple, Optional, Any
 from dataclasses import dataclass, field
 
-
-@dataclass
+dataclass
 class ActionConfig:
-    """Configuration for action space."""
 
-    # Action dimensions (4D continuous as per report)
     action_dim: int = 4
 
-    # Action bounds (body-frame velocities + yaw rate)
-    max_translational_velocity: float = 5.0  # m/s (from report: 5 m/s max)
-    max_yaw_rate: float = 1.0  # rad/s
+    max_translational_velocity: float = 5.0
+    max_yaw_rate: float = 1.0
 
-    # --- DEBATE AI MODIFICATION ---
-    # action_low and action_high are now properties to ensure they are always
-    # consistent with max_translational_velocity and max_yaw_rate.
-    @property
-    def action_low(self) -> Tuple[float, ...]:
+    property
+    def action_low(self) - Tuple[float, ...]:
         return (
             -self.max_translational_velocity,
             -self.max_translational_velocity,
@@ -32,8 +20,8 @@ class ActionConfig:
             -self.max_yaw_rate,
         )
 
-    @property
-    def action_high(self) -> Tuple[float, ...]:
+    property
+    def action_high(self) - Tuple[float, ...]:
         return (
             self.max_translational_velocity,
             self.max_translational_velocity,
@@ -41,43 +29,29 @@ class ActionConfig:
             self.max_yaw_rate,
         )
 
-    # --- END OF MODIFICATION ---
-
-    # Safety constraints
     enable_safety_limits: bool = True
-    emergency_stop_threshold: float = 10.0  # m/s (absolute velocity limit)
-
+    emergency_stop_threshold: float = 10.0
 
 class ActionSpace:
-    """
-    4D continuous action space implementation.
-    Actions: [vx, vy, vz, ω] - body-frame velocity commands + yaw rate.
-
-    CRITICAL: PPO outputs unbounded Gaussian actions - must clip before use!
-    """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         if config is None:
             config = {}
 
-        self.config = ActionConfig(**config.get("action", {}))
+        self.config = ActionConfig(config.get("action", {}))
         self.logger = logging.getLogger(__name__)
 
-        # Validate configuration
         assert self.config.action_dim == 4, (
             f"Action dimension must be 4, got {self.config.action_dim}"
         )
         assert len(self.config.action_low) == 4, "action_low must have 4 elements"
         assert len(self.config.action_high) == 4, "action_high must have 4 elements"
 
-        # Action bounds as numpy arrays
         self.action_low = np.array(self.config.action_low, dtype=np.float32)
         self.action_high = np.array(self.config.action_high, dtype=np.float32)
 
-        # Action component names
         self.action_names = ["vx", "vy", "vz", "yaw_rate"]
 
-        # Action mapping for discrete to continuous conversion
         self.action_map = {
             "forward": np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32),
             "backward": np.array([-1.0, 0.0, 0.0, 0.0], dtype=np.float32),
@@ -90,11 +64,9 @@ class ActionSpace:
             "hover": np.array([0.0, 0.0, 0.0, 0.0], dtype=np.float32),
         }
 
-        # Action statistics for monitoring
         self.action_history = []
         self.max_history_length = 1000
 
-        # Clipping statistics
         self.clip_count = 0
         self.total_actions = 0
 
@@ -108,32 +80,23 @@ class ActionSpace:
             f"yaw=[{self.action_low[3]:.1f}, {self.action_high[3]:.1f}]"
         )
 
-    def sample(self) -> np.ndarray:
-        """Sample random action from action space."""
+    def sample(self) - np.ndarray:
+
         action = np.random.uniform(self.action_low, self.action_high).astype(np.float32)
         return action
 
-    def clip_action(self, action: np.ndarray) -> np.ndarray:
-        """
-        Clip action to valid bounds.
+    def clip_action(self, action: np.ndarray) - np.ndarray:
 
-        Args:
-            action: Raw action vector
-
-        Returns:
-            Clipped action vector
-        """
         clipped_action = np.clip(action, self.action_low, self.action_high).astype(
             np.float32
         )
 
-        # Track clipping statistics
         if not np.allclose(action, clipped_action, atol=1e-6):
             self.clip_count += 1
-            if self.clip_count % 100 == 0:
-                clip_rate = (self.clip_count / max(1, self.total_actions)) * 100
+            if self.clip_count  100 == 0:
+                clip_rate = (self.clip_count / max(1, self.total_actions))  100
                 self.logger.debug(
-                    f"Action clipping rate: {clip_rate:.1f}% ({self.clip_count}/{self.total_actions})"
+                    f"Action clipping rate: {clip_rate:.1f} ({self.clip_count}/{self.total_actions})"
                 )
 
         self.total_actions += 1
@@ -142,37 +105,22 @@ class ActionSpace:
 
     def apply_safety_constraints(
         self, action: np.ndarray, current_state: Optional[Dict[str, Any]] = None
-    ) -> np.ndarray:
-        """
-        Apply safety constraints to action.
+    ) - np.ndarray:
 
-        CRITICAL: This is called from airsim_env.step() and must clip PPO actions!
-
-        Args:
-            action: Raw action vector [vx, vy, vz, ω] (potentially unbounded from PPO)
-            current_state: Current drone state (for context-aware constraints)
-
-        Returns:
-            Safety-constrained action vector (guaranteed within bounds)
-        """
-        # ALWAYS clip first, even if safety_limits disabled
         safe_action = self.clip_action(action)
 
         if not self.config.enable_safety_limits:
             return safe_action
 
-        # Emergency velocity limit
         translational_velocity = np.linalg.norm(safe_action[:3])
-        if translational_velocity > self.config.emergency_stop_threshold:
-            # Scale down translational velocities
+        if translational_velocity  self.config.emergency_stop_threshold:
             scale_factor = self.config.emergency_stop_threshold / translational_velocity
-            safe_action[:3] *= scale_factor
+            safe_action[:3] = scale_factor
             self.logger.warning(
-                f"Emergency velocity limit applied: {translational_velocity:.2f} -> "
+                f"Emergency velocity limit applied: {translational_velocity:.2f} - "
                 f"{np.linalg.norm(safe_action[:3]):.2f} m/s"
             )
 
-        # Context-aware constraints (if state provided)
         if current_state is not None:
             safe_action = self._apply_contextual_constraints(safe_action, current_state)
 
@@ -180,81 +128,62 @@ class ActionSpace:
 
     def _apply_contextual_constraints(
         self, action: np.ndarray, current_state: Dict[str, Any]
-    ) -> np.ndarray:
-        """Apply context-aware safety constraints based on current state."""
+    ) - np.ndarray:
+
         constrained_action = action.copy()
 
-        # 1. Altitude constraints (prevent ground collision)
-        # --- DEBATE AI MODIFICATION ---
-        # Corrected the logic to prevent ground collision in NED coordinates.
-        # If too low and commanded to descend (vz > 0 in NED), force an upward velocity.
         current_altitude = abs(current_state.get("position", (0, 0, 0))[2])
         if (
-            current_altitude < 1.0 and constrained_action[2] > 0
-        ):  # Too low and descending
+            current_altitude  1.0 and constrained_action[2]  0
+        ):
             self.logger.warning(
                 f"Altitude safety triggered! Current alt: {current_altitude:.2f}m. Forcing upward velocity."
             )
-            constrained_action[2] = -0.5  # Force a moderate upward velocity
-        # --- END OF MODIFICATION ---
+            constrained_action[2] = -0.5
 
-        # 2. Battery-aware constraints
         battery_level = current_state.get("battery_level", 1.0)
-        if battery_level < 0.2:  # Low battery
-            energy_scale = max(0.5, battery_level * 2)
-            constrained_action[:3] *= energy_scale
+        if battery_level  0.2:
+            energy_scale = max(0.5, battery_level  2)
+            constrained_action[:3] = energy_scale
 
-        # 3. Obstacle proximity constraints
         if "nearby_obstacles" in current_state:
             obstacles = current_state["nearby_obstacles"]
             if obstacles:
                 min_distance = min(obstacles)
-                if min_distance < 2.0:  # Within 2m of an obstacle
+                if min_distance  2.0:
                     safety_scale = max(0.3, min_distance / 2.0)
-                    constrained_action[:3] *= safety_scale
+                    constrained_action[:3] = safety_scale
 
         return constrained_action
 
     def convert_to_body_frame(
         self, action: np.ndarray, current_orientation: Tuple[float, float, float, float]
-    ) -> np.ndarray:
-        """Convert action to body frame (actions are already in body frame)."""
+    ) - np.ndarray:
+
         return action.copy()
 
-    def validate_action(self, action: np.ndarray) -> bool:
-        """
-        Validate action vector.
+    def validate_action(self, action: np.ndarray) - bool:
 
-        Args:
-            action: Action vector to validate
-
-        Returns:
-            True if valid, False otherwise
-        """
-        # Check dimension
         if len(action) != self.config.action_dim:
             self.logger.error(
                 f"Invalid action dimension: {len(action)} != {self.config.action_dim}"
             )
             return False
 
-        # Check for NaN or infinite values
         if np.any(np.isnan(action)) or np.any(np.isinf(action)):
             self.logger.error("Action contains NaN or infinite values")
             return False
 
-        # Warn but don't reject out-of-bounds (will be clipped later)
         tolerance = 0.1
-        if np.any(action < self.action_low - tolerance) or np.any(
-            action > self.action_high + tolerance
+        if np.any(action  self.action_low - tolerance) or np.any(
+            action  self.action_high + tolerance
         ):
             self.logger.warning(f"Action outside bounds: {action}")
-            # Don't return False - let clipping handle it
 
         return True
 
-    def get_action_info(self) -> Dict[str, Any]:
-        """Get information about action space structure."""
+    def get_action_info(self) - Dict[str, Any]:
+
         return {
             "dimension": self.config.action_dim,
             "type": "continuous",
@@ -290,14 +219,14 @@ class ActionSpace:
         }
 
     def record_action(self, action: np.ndarray):
-        """Record action for statistics and monitoring."""
+
         self.action_history.append(action.copy())
 
-        if len(self.action_history) > self.max_history_length:
+        if len(self.action_history)  self.max_history_length:
             self.action_history.pop(0)
 
-    def get_action_statistics(self) -> Dict[str, Any]:
-        """Get statistics about recent actions."""
+    def get_action_statistics(self) - Dict[str, Any]:
+
         if not self.action_history:
             return {"message": "No actions recorded yet"}
 
@@ -319,24 +248,24 @@ class ActionSpace:
                 ),
                 "mean_yaw_rate": float(np.mean(np.abs(actions[:, 3]))),
             },
-            "clipping_rate": (self.clip_count / max(1, self.total_actions)) * 100,
+            "clipping_rate": (self.clip_count / max(1, self.total_actions))  100,
         }
 
     def reset_statistics(self):
-        """Reset action statistics."""
+
         self.action_history.clear()
         self.clip_count = 0
         self.total_actions = 0
         self.logger.info("Action statistics reset")
 
-    def is_zero_action(self, action: np.ndarray, tolerance: float = 1e-6) -> bool:
-        """Check if action is effectively zero (hover)."""
+    def is_zero_action(self, action: np.ndarray, tolerance: float = 1e-6) - bool:
+
         return np.allclose(action, 0.0, atol=tolerance)
 
-    def create_hover_action(self) -> np.ndarray:
-        """Create hover action (all zeros)."""
+    def create_hover_action(self) - np.ndarray:
+
         return np.zeros(self.config.action_dim, dtype=np.float32)
 
-    def create_emergency_stop_action(self) -> np.ndarray:
-        """Create emergency stop action."""
+    def create_emergency_stop_action(self) - np.ndarray:
+
         return self.create_hover_action()

@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Test Scenarios Runner
-Runs comprehensive test scenarios for model validation.
-"""
-
 import os
 import sys
 import argparse
@@ -15,36 +9,26 @@ from typing import Dict, List, Any, Optional
 import time
 import torch
 
-# Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# CORRECTED IMPORTS:
 from src.environment.airsim_env import AirSimEnvironment as DroneEnvironment
 from src.rl.agents.ppo_agent import PPOAgent
-from src.rl.initialization import initialize_rl_system  # ← FIXED IMPORT
+from src.rl.initialization import initialize_rl_system
 from src.utils import setup_logging, load_config
 
-
 class TestScenariosRunner:
-    """
-    Comprehensive test scenario runner for robustness evaluation.
-    """
 
     def __init__(self, config_path: str, model_path: str):
-        # Load configuration
         self.config = load_config(config_path)
         self.model_path = Path(model_path)
 
-        # Setup logging
         self.logger_system = setup_logging(self.config.logging)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize RL system and load model
         self.rl_system = initialize_rl_system(self.config.rl)
         self.agent = self.rl_system["agent"]
         self._load_model()
 
-        # Test scenarios configuration
         self.test_scenarios = {
             "nominal": {
                 "description": "Standard operating conditions",
@@ -52,7 +36,7 @@ class TestScenariosRunner:
                 "config_overrides": {},
             },
             "high_obstacle_density": {
-                "description": "Dense obstacle environment (30% occupancy)",
+                "description": "Dense obstacle environment (30 occupancy)",
                 "episodes": 15,
                 "config_overrides": {
                     "obstacle_density": 0.30,
@@ -65,7 +49,7 @@ class TestScenariosRunner:
                 "episodes": 10,
                 "config_overrides": {
                     "force_long_distance": True,
-                    "min_goal_distance": 35.0,  # Near maximum in 20x40m building
+                    "min_goal_distance": 35.0,
                 },
             },
             "multi_floor_stress": {
@@ -81,7 +65,7 @@ class TestScenariosRunner:
                 "description": "Low battery simulation",
                 "episodes": 10,
                 "config_overrides": {
-                    "initial_battery": 0.3,  # 30% battery
+                    "initial_battery": 0.3,
                     "energy_penalty_weight": 2.0,
                 },
             },
@@ -115,14 +99,13 @@ class TestScenariosRunner:
             },
         }
 
-        # Results storage
         self.scenario_results = {}
 
         self.logger.info("Test Scenarios Runner initialized")
         self.logger.info(f"Configured {len(self.test_scenarios)} test scenarios")
 
     def _load_model(self):
-        """Load trained model."""
+
         try:
             checkpoint = torch.load(self.model_path, map_location=self.agent.device)
 
@@ -138,13 +121,8 @@ class TestScenariosRunner:
             self.logger.error(f"Failed to load model: {e}")
             raise
 
-    def run_all_scenarios(self) -> Dict[str, Any]:
-        """
-        Run all test scenarios.
+    def run_all_scenarios(self) - Dict[str, Any]:
 
-        Returns:
-            Complete scenario test results
-        """
         self.logger.info("Starting comprehensive scenario testing")
         total_start = time.time()
 
@@ -160,17 +138,16 @@ class TestScenariosRunner:
             self.scenario_results[scenario_name] = scenario_results
 
             completed_episodes += scenario_config["episodes"]
-            progress = (completed_episodes / total_episodes) * 100
+            progress = (completed_episodes / total_episodes)  100
 
             self.logger.info(
                 f"Scenario {scenario_name} completed: "
-                f"{scenario_results['success_rate']:.1f}% success "
-                f"[{progress:.1f}% total progress]"
+                f"{scenario_results['success_rate']:.1f} success "
+                f"[{progress:.1f} total progress]"
             )
 
         total_time = time.time() - total_start
 
-        # Generate comprehensive analysis
         overall_analysis = self._analyze_scenario_results()
 
         final_results = {
@@ -188,21 +165,11 @@ class TestScenariosRunner:
 
     def _run_scenario(
         self, scenario_name: str, scenario_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Run single test scenario.
+    ) - Dict[str, Any]:
 
-        Args:
-            scenario_name: Scenario identifier
-            scenario_config: Scenario configuration
-
-        Returns:
-            Scenario results
-        """
         num_episodes = scenario_config["episodes"]
         config_overrides = scenario_config["config_overrides"]
 
-        # Create environment with scenario-specific configuration
         scenario_env_config = self.config.environment.copy()
         scenario_env_config.update(config_overrides)
         scenario_environment = DroneEnvironment(scenario_env_config)
@@ -213,37 +180,31 @@ class TestScenariosRunner:
             episode_result = self._run_scenario_episode(scenario_environment)
             episode_results.append(episode_result)
 
-        # Aggregate scenario results
         return self._aggregate_scenario_results(episode_results, scenario_name)
 
-    def _run_scenario_episode(self, environment) -> Dict[str, Any]:
-        """Run single scenario episode."""
+    def _run_scenario_episode(self, environment) - Dict[str, Any]:
+
         observation = environment.reset()
 
         total_energy = 0.0
         trajectory = []
         done = False
         steps = 0
-        max_steps = 6000  # Extended for stress tests
+        max_steps = 6000
 
-        # Episode tracking
         collision_occurred = False
         emergency_landing = False
         localization_loss = False
 
-        while not done and steps < max_steps:
+        while not done and steps  max_steps:
             try:
-                # Get action from trained agent
                 action, _ = self.agent.select_action(observation, deterministic=True)
 
-                # Execute action
                 observation, reward, done, info = environment.step(action)
 
-                # Track metrics
                 trajectory.append(info.get("position", [0, 0, 0]))
                 total_energy += info.get("energy_consumption", 0.0)
 
-                # Check special conditions
                 if info.get("collision", False):
                     collision_occurred = True
 
@@ -259,7 +220,6 @@ class TestScenariosRunner:
                 self.logger.warning(f"Episode exception: {e}")
                 done = True
 
-        # Success determination
         goal_position = environment.get_goal_position()
         final_position = trajectory[-1] if trajectory else [0, 0, 0]
         final_distance = np.linalg.norm(
@@ -267,7 +227,7 @@ class TestScenariosRunner:
         )
 
         success = (
-            final_distance <= 0.5
+            final_distance = 0.5
             and not collision_occurred
             and not emergency_landing
             and not localization_loss
@@ -276,7 +236,7 @@ class TestScenariosRunner:
         return {
             "success": success,
             "energy": total_energy,
-            "flight_time": steps / 20.0,  # 20Hz
+            "flight_time": steps / 20.0,
             "collision": collision_occurred,
             "emergency_landing": emergency_landing,
             "localization_loss": localization_loss,
@@ -287,25 +247,25 @@ class TestScenariosRunner:
 
     def _aggregate_scenario_results(
         self, episode_results: List[Dict[str, Any]], scenario_name: str
-    ) -> Dict[str, Any]:
-        """Aggregate results for scenario."""
+    ) - Dict[str, Any]:
+
         successful_episodes = [ep for ep in episode_results if ep["success"]]
 
         aggregated = {
             "scenario_name": scenario_name,
             "total_episodes": len(episode_results),
             "successful_episodes": len(successful_episodes),
-            "success_rate": len(successful_episodes) / len(episode_results) * 100,
+            "success_rate": len(successful_episodes) / len(episode_results)  100,
             "collision_rate": np.mean([ep["collision"] for ep in episode_results])
-            * 100,
+             100,
             "emergency_rate": np.mean(
                 [ep["emergency_landing"] for ep in episode_results]
             )
-            * 100,
+             100,
             "localization_loss_rate": np.mean(
                 [ep["localization_loss"] for ep in episode_results]
             )
-            * 100,
+             100,
         }
 
         if successful_episodes:
@@ -332,12 +292,11 @@ class TestScenariosRunner:
 
         return aggregated
 
-    def _analyze_scenario_results(self) -> Dict[str, Any]:
-        """Analyze results across all scenarios."""
+    def _analyze_scenario_results(self) - Dict[str, Any]:
+
         if not self.scenario_results:
             return {}
 
-        # Find most/least robust scenarios
         success_rates = {
             name: results["success_rate"]
             for name, results in self.scenario_results.items()
@@ -346,13 +305,12 @@ class TestScenariosRunner:
         best_scenario = max(success_rates.items(), key=lambda x: x[1])
         worst_scenario = min(success_rates.items(), key=lambda x: x[1])
 
-        # Calculate robustness metrics
         success_rate_variance = np.var(list(success_rates.values()))
         mean_success_rate = np.mean(list(success_rates.values()))
 
         robustness_score = mean_success_rate - (
-            success_rate_variance * 0.1
-        )  # Penalize high variance
+            success_rate_variance  0.1
+        )
 
         return {
             "overall_robustness_score": float(robustness_score),
@@ -365,62 +323,61 @@ class TestScenariosRunner:
             "robustness_grade": self._grade_robustness(robustness_score),
         }
 
-    def _grade_robustness(self, robustness_score: float) -> str:
-        """Grade system robustness."""
-        if robustness_score >= 90:
+    def _grade_robustness(self, robustness_score: float) - str:
+
+        if robustness_score = 90:
             return "Excellent"
-        elif robustness_score >= 80:
+        elif robustness_score = 80:
             return "Good"
-        elif robustness_score >= 70:
+        elif robustness_score = 70:
             return "Fair"
         else:
             return "Poor"
 
-    def _generate_robustness_summary(self) -> Dict[str, Any]:
-        """Generate robustness testing summary."""
+    def _generate_robustness_summary(self) - Dict[str, Any]:
+
         analysis = self._analyze_scenario_results()
 
         return {
             "overall_grade": analysis.get("robustness_grade", "Unknown"),
             "stress_test_passed": analysis.get("mean_success_rate_across_scenarios", 0)
-            >= 80,
+            = 80,
             "failure_modes_identified": self._identify_failure_modes(),
             "robustness_recommendations": self._generate_robustness_recommendations(),
         }
 
-    def _identify_failure_modes(self) -> List[str]:
-        """Identify common failure modes."""
+    def _identify_failure_modes(self) - List[str]:
+
         failure_modes = []
 
         for scenario_name, results in self.scenario_results.items():
-            if results["success_rate"] < 80:  # Below acceptable threshold
+            if results["success_rate"]  80:
                 failure_modes.append(
-                    f"{scenario_name}: {results['success_rate']:.1f}% success"
+                    f"{scenario_name}: {results['success_rate']:.1f} success"
                 )
 
         return failure_modes
 
-    def _generate_robustness_recommendations(self) -> List[str]:
-        """Generate robustness improvement recommendations."""
+    def _generate_robustness_recommendations(self) - List[str]:
+
         recommendations = []
         analysis = self._analyze_scenario_results()
 
-        if analysis.get("success_rate_variance", 0) > 100:  # High variance
+        if analysis.get("success_rate_variance", 0)  100:
             recommendations.append("Improve consistency across different scenarios")
 
-        if self.scenario_results.get("sensor_noise", {}).get("success_rate", 100) < 85:
+        if self.scenario_results.get("sensor_noise", {}).get("success_rate", 100)  85:
             recommendations.append("Enhance robustness to sensor noise and uncertainty")
 
         if (
             self.scenario_results.get("emergency_scenarios", {}).get(
                 "success_rate", 100
             )
-            < 90
+             90
         ):
             recommendations.append("Improve emergency handling and recovery procedures")
 
         return recommendations
-
 
 def main():
     parser = argparse.ArgumentParser(description="Run comprehensive test scenarios")
@@ -448,10 +405,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Create runner
     runner = TestScenariosRunner(args.config, args.model)
 
-    # Filter scenarios if specified
     if args.scenarios:
         runner.test_scenarios = {
             name: config
@@ -459,31 +414,27 @@ def main():
             if name in args.scenarios
         }
 
-    # Run scenarios
     results = runner.run_all_scenarios()
 
-    # Save results
     output_file = Path(args.output)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2, default=str)
 
-    # Print summary
     print("\nTEST SCENARIOS SUMMARY")
-    print("=" * 50)
+    print("="  50)
 
     for scenario_name, scenario_result in results["scenario_results"].items():
-        status = "PASS" if scenario_result["success_rate"] >= 80 else "FAIL"
+        status = "PASS" if scenario_result["success_rate"] = 80 else "FAIL"
         print(
-            f"{scenario_name:<25}: {scenario_result['success_rate']:5.1f}% [{status}]"
+            f"{scenario_name:25}: {scenario_result['success_rate']:5.1f} [{status}]"
         )
 
     print(f"\nOverall Robustness: {results['robustness_analysis']['robustness_grade']}")
     print(
-        f"Mean Success Rate: {results['robustness_analysis']['mean_success_rate_across_scenarios']:.1f}%"
+        f"Mean Success Rate: {results['robustness_analysis']['mean_success_rate_across_scenarios']:.1f}"
     )
-
 
 if __name__ == "__main__":
     main()

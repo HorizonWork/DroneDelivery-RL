@@ -1,9 +1,3 @@
-"""
-World Builder - FINAL ROBUST VERSION
-Constructs and manages a 5-floor building environment in AirSim.
-This version retains the original structure but fixes critical spawn collision issues.
-"""
-
 import numpy as np
 import logging
 import time
@@ -11,31 +5,26 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
-
 def _to_tuple3(
     values: Optional[Any], fallback: Tuple[float, float, float]
-) -> Tuple[float, float, float]:
-    """Convert sequences to 3-element float tuples."""
+) - Tuple[float, float, float]:
+
     if values is None:
         values = fallback
     data = list(values)
-    if len(data) < 3:
-        data.extend([0.0] * (3 - len(data)))
+    if len(data)  3:
+        data.extend([0.0]  (3 - len(data)))
     return tuple(float(data[i]) for i in range(3))
 
-
 class FloorType(Enum):
-    """Floor types for different layouts."""
 
     RESIDENTIAL = "residential"
     OFFICE = "office"
     COMMERCIAL = "commercial"
     MIXED_USE = "mixed_use"
 
-
-@dataclass
+dataclass
 class FloorSpec:
-    """Specification for a single floor."""
 
     floor_number: int
     floor_type: FloorType
@@ -45,10 +34,8 @@ class FloorSpec:
     has_dynamic_obstacles: bool
     accessibility: float
 
-
-@dataclass
+dataclass
 class BuildingSpec:
-    """Complete building specification."""
 
     floors: List[FloorSpec]
     total_height: float
@@ -56,14 +43,10 @@ class BuildingSpec:
     vertical_connectors: List[str]
     emergency_exits: List[Tuple[float, float, float]]
 
-
 class WorldBuilder:
-    """
-    Builds and manages the environment, focusing on SAFE obstacle placement.
-    """
 
     def __init__(self, config: Dict[str, Any] = None):
-        """Initialize world builder with robust settings."""
+
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
 
@@ -75,27 +58,22 @@ class WorldBuilder:
 
         dynamic_cfg = self.config.get("dynamic_obstacles", {})
 
-        # --- DEBATE AI ROBUST FIX ---
         self.enable_dynamic_obstacles = dynamic_cfg.get("enabled", True)
         self.num_dynamic_obstacles = dynamic_cfg.get("human_agents", 12)
 
-        # Max radius from the drone where obstacles can spawn.
         self.spawn_radius_m = float(dynamic_cfg.get("spawn_radius_m", 50.0))
 
-        # CRITICAL: Do not spawn any obstacle closer than this distance to the drone.
         self.min_spawn_distance_from_drone_m = float(
             dynamic_cfg.get("min_spawn_distance_from_drone_m", 15.0)
         )
 
-        if self.min_spawn_distance_from_drone_m >= self.spawn_radius_m:
+        if self.min_spawn_distance_from_drone_m = self.spawn_radius_m:
             self.logger.warning(
-                f"min_spawn_distance ({self.min_spawn_distance_from_drone_m}) was >= spawn_radius ({self.spawn_radius_m}). "
+                f"min_spawn_distance ({self.min_spawn_distance_from_drone_m}) was = spawn_radius ({self.spawn_radius_m}). "
                 f"Forcing min_distance to be radius/2 to ensure a valid spawn area."
             )
             self.min_spawn_distance_from_drone_m = self.spawn_radius_m / 2.0
-        # --- END OF FIX ---
 
-        # This will be updated by the environment with the drone's actual spawn location for each episode.
         self.current_drone_spawn_location: Tuple[float, float, float] = (0.0, 0.0, 0.0)
 
         self.building_spec = self._create_building_spec()
@@ -118,14 +96,13 @@ class WorldBuilder:
         self.logger.info("AirSim bridge connected to world builder")
 
     def update_spawn_reference(self, spawn_location: Tuple[float, float, float]):
-        """The environment calls this to set the origin for obstacle generation."""
+
         self.current_drone_spawn_location = spawn_location
         self.logger.debug(
             f"WorldBuilder origin for this episode is now drone spawn: {self.current_drone_spawn_location}"
         )
 
-    def _create_building_spec(self) -> BuildingSpec:
-        # This function is kept as it defines the theoretical structure of the world, which is fine.
+    def _create_building_spec(self) - BuildingSpec:
         floors = []
         for floor_num in range(1, self.num_floors + 1):
             floors.append(
@@ -145,7 +122,7 @@ class WorldBuilder:
                     accessibility=1.0,
                 )
             )
-        total_height = self.num_floors * self.floor_dimensions["height"]
+        total_height = self.num_floors  self.floor_dimensions["height"]
         return BuildingSpec(
             floors=floors,
             total_height=total_height,
@@ -154,11 +131,11 @@ class WorldBuilder:
             emergency_exits=[],
         )
 
-    def build_world(self) -> bool:
-        """Builds the world by placing only the necessary dynamic obstacles."""
+    def build_world(self) - bool:
+
         self.logger.info("Building world...")
         try:
-            self._generate_static_obstacles()  # This will now do nothing but log a message.
+            self._generate_static_obstacles()
             if self.enable_dynamic_obstacles:
                 self._initialize_dynamic_obstacles()
             self.logger.info("World building tasks completed.")
@@ -168,31 +145,12 @@ class WorldBuilder:
             return False
 
     def _generate_static_obstacles(self):
-        """
-        --- DEBATE AI SAFETY OVERRIDE ---
-        This function is intentionally disabled. Programmatically creating static meshes
-        like walls and floors from Python is highly unstable and the likely cause of
-        the invisible floors and spawn collisions.
 
-        The correct approach is to design your static world (buildings, walls, floors)
-        directly in the Unreal Engine editor and save it as a map. This ensures
-        that the physics engine handles collisions correctly from the start.
-
-        This WorldBuilder will now only focus on spawning DYNAMIC obstacles in a safe manner.
-        The original code is left as comments for reference.
-        """
         self.logger.warning("Static obstacle generation is DISABLED for stability.")
         self.static_obstacles.clear()
-        # for floor_spec in self.building_spec.floors:
-        #     floor_obstacles = self._generate_floor_obstacles(floor_spec)
-        #     self.static_obstacles.extend(floor_obstacles)
-        # self.logger.info(f"Generated {len(self.static_obstacles)} static obstacles")
 
     def _initialize_dynamic_obstacles(self):
-        """
-        Initialize dynamic obstacles safely around the drone's spawn point.
-        This is the core fix to prevent spawn collisions.
-        """
+
         self.dynamic_obstacles.clear()
         if not self.enable_dynamic_obstacles:
             return
@@ -203,18 +161,15 @@ class WorldBuilder:
         )
 
         for i in range(self.num_dynamic_obstacles):
-            # Sample an angle and a radius for the obstacle's position
-            angle = np.random.uniform(0, 2 * np.pi)
+            angle = np.random.uniform(0, 2  np.pi)
 
-            # THE FIX: The radius is sampled from the SAFE ZONE outwards to the max radius.
             radius = np.random.uniform(
                 self.min_spawn_distance_from_drone_m, self.spawn_radius_m
             )
 
-            # Calculate the obstacle's world position relative to the drone
-            obs_x = drone_x + radius * np.cos(angle)
-            obs_y = drone_y + radius * np.sin(angle)
-            obs_z = drone_z  # Assume obstacles are on the same Z-plane for simplicity.
+            obs_x = drone_x + radius  np.cos(angle)
+            obs_y = drone_y + radius  np.sin(angle)
+            obs_z = drone_z
 
             agent = {
                 "id": f"Human_{i + 1}",
@@ -223,7 +178,7 @@ class WorldBuilder:
             }
             self.dynamic_obstacles.append(agent)
             self.logger.debug(
-                f"  -> Spawned obstacle {i + 1} at ({obs_x:.1f}, {obs_y:.1f})"
+                f"  - Spawned obstacle {i + 1} at ({obs_x:.1f}, {obs_y:.1f})"
             )
 
         self.logger.info(
@@ -231,31 +186,26 @@ class WorldBuilder:
         )
 
     def update_world_state(self):
-        """Placeholder for logic that would move the obstacles over time."""
-        pass  # You can re-implement the movement logic here if needed.
 
-    def get_obstacles(self) -> Tuple[List, List[Tuple[float, float, float]]]:
-        """Returns the current list of dynamic and static obstacles."""
+        pass
+
+    def get_obstacles(self) - Tuple[List, List[Tuple[float, float, float]]]:
+
         dynamic_positions = [
             tuple(agent["position"]) for agent in self.dynamic_obstacles
         ]
         return self.static_obstacles, dynamic_positions
 
     def reset_world(self):
-        """Reset world state for a new episode."""
+
         self.logger.debug("Resetting world state...")
-        # Only re-initialize dynamic obstacles as static ones are disabled.
         self._initialize_dynamic_obstacles()
         self.last_update_time = time.time()
         self.logger.debug("World state has been reset.")
 
-    # Keeping the original helper functions below this line, even if they are not
-    # called by the new logic, to preserve the file's structure.
-    # They are effectively "dead code" now but are kept for your reference.
-
     def _generate_floor_obstacles(
         self, floor_spec: FloorSpec
-    ) -> List[Tuple[float, float, float]]:
+    ) - List[Tuple[float, float, float]]:
         self.logger.debug(
             f"'{self._generate_floor_obstacles.__name__}' is not used in the fixed version."
         )
@@ -263,7 +213,7 @@ class WorldBuilder:
 
     def _generate_wall_obstacles(
         self, floor_spec: FloorSpec, floor_z: float
-    ) -> List[Tuple[float, float, float]]:
+    ) - List[Tuple[float, float, float]]:
         self.logger.debug(
             f"'{self._generate_wall_obstacles.__name__}' is not used in the fixed version."
         )
@@ -271,7 +221,7 @@ class WorldBuilder:
 
     def _generate_interior_obstacles(
         self, floor_spec: FloorSpec, floor_z: float, num_obstacles: int
-    ) -> List[Tuple[float, float, float]]:
+    ) - List[Tuple[float, float, float]]:
         self.logger.debug(
             f"'{self._generate_interior_obstacles.__name__}' is not used in the fixed version."
         )
@@ -279,7 +229,7 @@ class WorldBuilder:
 
     def _generate_office_obstacles(
         self, floor_spec: FloorSpec, floor_z: float
-    ) -> List[Tuple[float, float, float]]:
+    ) - List[Tuple[float, float, float]]:
         self.logger.debug(
             f"'{self._generate_office_obstacles.__name__}' is not used in the fixed version."
         )
@@ -287,14 +237,13 @@ class WorldBuilder:
 
     def _generate_residential_obstacles(
         self, floor_spec: FloorSpec, floor_z: float
-    ) -> List[Tuple[float, float, float]]:
+    ) - List[Tuple[float, float, float]]:
         self.logger.debug(
             f"'{_generate_residential_obstacles.__name__}' is not used in the fixed version."
         )
         return []
 
-    def get_world_bounds(self) -> Dict[str, float]:
-        # This function might still be useful, so it is kept.
+    def get_world_bounds(self) - Dict[str, float]:
         return {
             "x_min": -self.spawn_radius_m,
             "x_max": self.spawn_radius_m,
