@@ -10,7 +10,7 @@
 - ROS2: Humble Hawksbill (optional, for SLAM integration)
 
 bash
-git clone repository-url
+git clone https://github.com/HorizonWork/DroneDelivery-RL
 cd DroneDelivery-RL
 
 conda env create -f environment.yml
@@ -19,7 +19,7 @@ conda activate drone-delivery-rl
 pip install -e .
 
 bash
-git clone repository-url
+git clone https://github.com/HorizonWork/DroneDelivery-RL
 cd DroneDelivery-RL
 
 python -m venv venv
@@ -108,9 +108,9 @@ json
   "Vehicles": {
     "Drone0": {
       "VehicleType": "SimpleFlight",
-      "X": 6000.0,
-      "Y": -3000.0,
-      "Z": 300.0,
+      "X": 60.0,
+      "Y": -30.0,
+      "Z": 3.0,
       "Pitch": 0.0,
       "Roll": 0.0,
       "Yaw": 0.0
@@ -172,7 +172,7 @@ building:
 
 spawn:
   name: "DroneSpawn"
-  location: [6000, -3000, 300]
+  location: [60, -30, 3]
 
 targets:
   floor_1: ["Landing_101", "Landing_102", "Landing_103", "Landing_104", "Landing_105", "Landing_106"]
@@ -247,9 +247,9 @@ num_envs: 4
 - [ ] ORB-SLAM3 built (if using visual SLAM)
 - [ ] ROS workspace built successfully
 
-- [ ] Training parameters match Table 2
-- [ ] Environment parameters match report specs
-- [ ] Reward function coefficients match Equation (2)
+- [ ] Training parameters 
+- [ ] Environment parameters
+- [ ] Reward function coefficients
 - [ ] Landing targets configured (Landing_101-506)
 
 - [ ] Installation verification script passes

@@ -23,7 +23,7 @@ This system integrates Visual-Inertial SLAM, A global planning, S-RRT local repl
 
 ---
 
-git clone repository-url DroneDelivery-RL
+git clone https://github.com/HorizonWork/DroneDelivery-RL DroneDelivery-RL
 cd DroneDelivery-RL
 
 python scripts/setup/build_environment.py

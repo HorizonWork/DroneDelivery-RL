@@ -21,7 +21,7 @@ Hướng dẫn cài đặt hoàn chỉnh hệ thống DroneDelivery-RL với t�
 ---
 
 bash
-git clone repository-url DroneDelivery-RL
+git clone https://github.com/HorizonWork/DroneDelivery-RL DroneDelivery-RL
 cd DroneDelivery-RL
 
 bash

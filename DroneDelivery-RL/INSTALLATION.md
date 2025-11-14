@@ -10,7 +10,7 @@
 - ROS2: Humble Hawksbill (optional, for SLAM integration)
 
 bash
-git clone repository-url
+git clone https://github.com/HorizonWork/DroneDelivery-RL
 cd DroneDelivery-RL
 
 conda env create -f environment.yml
@@ -19,7 +19,7 @@ conda activate drone-delivery-rl
 pip install -e .
 
 bash
-git clone repository-url
+git clone https://github.com/HorizonWork/DroneDelivery-RL
 cd DroneDelivery-RL
 
 python -m venv venv

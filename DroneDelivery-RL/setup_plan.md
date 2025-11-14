@@ -58,7 +58,7 @@ bash Miniconda3-latest-Linux-x86_64.sh
 source /.bashrc
 
 bash
-git clone repository-url DroneDelivery-RL
+git clone https://github.com/HorizonWork/DroneDelivery-RL DroneDelivery-RL
 cd DroneDelivery-RL
 
 bash

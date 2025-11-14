@@ -13,7 +13,7 @@ This project implements an Indoor Multi-Floor UAV Delivery System using energy-a
 -  Equation (2): Energy-aware reward function implementation
 -  Section 5: Complete evaluation against A, RRT, Random baselines
 -  Landing targets: Landing_101-506 systematic naming
--  Drone spawn: {6000, -3000, 300} exact location
+-  Drone spawn: {60, -30, 3} exact location
 
 DroneDelivery-RL/
  README.md
@@ -312,7 +312,7 @@ R(st, at) = 5001{goal} - 5dt - 0.1Δt - 0.01Σui² - 10jt - 1000ct
 -  5-floor building: 20m40m3m per floor  src/environment/world_builder.py
 -  Cell size: 0.5m  src/planning/global_planner/occupancy_grid.py
 -  Total cells: 4000  src/planning/global_planner/occupancy_grid.py
--  Drone spawn: {6000,-3000,300}  config/airsim/settings.json
+-  Drone spawn: {60,-30,3}  config/airsim/settings.json
 -  Targets: Landing_101-506  src/environment/target_manager.py
 
 -  Phase 1: 1 floor, 1M timesteps  src/rl/training/phase_1_trainer.py
@@ -327,7 +327,7 @@ R(st, at) = 5001{goal} - 5dt - 0.1Δt - 0.01Σui² - 10jt - 1000ct
 -  Random:  src/baselines/random_baseline/
 
 bash
-git clone repository-url
+git clone https://github.com/HorizonWork/DroneDelivery-RL
 cd DroneDelivery-RL
 
 bash scripts/setup/install_dependencies.sh
@@ -356,8 +356,4 @@ Clean separation between environment, planning, RL, and evaluation systems for e
 
 Proven AirSim setup from previous work, enhanced for 5-floor environment with exact spawn location.
 
-Full baseline comparison framework matching report evaluation section.
-
 Fixed seeds, detailed configuration, and checkpoint management ensure reproducible training.
-
-This structure provides a complete, production-ready implementation that matches 100 with your final report while incorporating proven AirSim integration from your previous work.
