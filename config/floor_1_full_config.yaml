@@ -1,0 +1,219 @@
+# ============================================================================
+# TRAINING CONFIGURATION - Full Floor 1 (All Landing Points)
+# Complete configuration for all 6 landing points with curriculum learning
+# ============================================================================
+
+# RL Training Configuration
+rl:
+  seed: 42
+  
+  # PPO Algorithm Parameters
+  ppo:
+    learning_rate: 0.0003
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_epsilon: 0.2
+    value_coef: 0.5
+    entropy_coef: 0.01
+    max_grad_norm: 0.5
+    batch_size: 64
+    n_epochs: 10
+    
+  # Network Architecture
+  network:
+    hidden_dims: [256, 256]
+    activation: "relu"
+    use_layer_norm: true
+    
+  # Training Settings
+  training:
+    total_timesteps: 3000000          # 3M timesteps for full floor
+    eval_frequency: 50000             # Eval every 50k steps
+    checkpoint_frequency: 100000      # Save every 100k steps
+    phase_eval_frequency: 10000       # Quick eval every 10k steps
+    
+  # Curriculum Learning - Progressive difficulty through landing points
+  curriculum:
+    enabled: true
+    phases:
+      # Phase 1: Landing_101 (Easiest)
+      - name: "phase1_landing_101"
+        min_timesteps: 300000
+        success_threshold: 0.80
+        config:
+          floors: 1
+          target_points: ["Landing_101"]
+          obstacle_density: 0.2
+          dynamic_obstacles: 0
+          
+      # Phase 2: Landing_101 + Landing_106
+      - name: "phase2_two_targets"
+        min_timesteps: 500000
+        success_threshold: 0.75
+        config:
+          floors: 1
+          target_points: ["Landing_101", "Landing_106"]
+          obstacle_density: 0.3
+          dynamic_obstacles: 0
+          
+      # Phase 3: Landing_101, 106, 102
+      - name: "phase3_three_targets"
+        min_timesteps: 700000
+        success_threshold: 0.70
+        config:
+          floors: 1
+          target_points: ["Landing_101", "Landing_106", "Landing_102"]
+          obstacle_density: 0.4
+          dynamic_obstacles: 1
+          
+      # Phase 4: All 6 landing points
+      - name: "phase4_all_targets"
+        min_timesteps: 1000000
+        success_threshold: 0.75
+        config:
+          floors: 1
+          target_points: ["Landing_101", "Landing_106", "Landing_102", "Landing_104", "Landing_103", "Landing_105"]
+          obstacle_density: 0.5
+          dynamic_obstacles: 2
+  
+  # Observation Normalization
+  normalization:
+    enabled: true
+    clip_range: 10.0
+    
+  # Checkpoints
+  checkpoints:
+    save_dir: "checkpoints"
+    keep_best: true
+    keep_last_n: 5
+    
+  # TensorBoard Logging
+  logging:
+    log_dir: "runs"
+    log_interval: 100
+
+# ============================================================================
+# AirSim Environment Configuration
+# ============================================================================
+
+environment:
+  # AirSim Connection
+  airsim:
+    ip: "127.0.0.1"
+    port: 41451
+    timeout: 60
+    drone_name: "Drone1"
+    spawn_location: [0.0, 0.0, -2.0]  # [x, y, z] in AirSim NED coordinates
+    spawn_orientation: [0.0, 0.0, 0.0]  # [pitch, roll, yaw] in radians
+    max_velocity: 5.0
+    max_yaw_rate: 1.0
+    control_frequency: 20.0
+    camera_frequency: 30.0
+    camera_resolution: [640, 480]
+    
+  # Drone Settings
+  drone:
+    name: "Drone1"
+    max_velocity: 5.0              # m/s
+    max_acceleration: 2.0          # m/s²
+    
+  # Spawn and Target Positions (UE Coordinates)
+  # IMPORTANT: Replace these coordinates with actual UE map coordinates
+  positions:
+    spawn_point:
+      name: "DroneSpawn"
+      x: 0.0                       # TODO: Replace with actual UE X coordinate
+      y: 0.0                       # TODO: Replace with actual UE Y coordinate
+      z: -2.0                      # TODO: Replace with actual UE Z coordinate (negative = up)
+      yaw: 0.0                     # Initial orientation
+    
+    landing_points:
+      # Sorted by difficulty (easiest to hardest)
+      - name: "Landing_101"
+        x: 10.0                    # TODO: Replace with actual UE X coordinate
+        y: 5.0                     # TODO: Replace with actual UE Y coordinate
+        z: -3.2                    # TODO: Landing platform Z + 1.2m offset (negative = up)
+        difficulty: 1              # Easiest
+        enabled: true
+        
+      - name: "Landing_106"
+        x: 15.0                    # TODO: Replace with actual UE X coordinate
+        y: 10.0                    # TODO: Replace with actual UE Y coordinate
+        z: -3.2                    # TODO: Landing platform Z + 1.2m offset
+        difficulty: 2
+        enabled: true
+        
+      - name: "Landing_102"
+        x: 20.0                    # TODO: Replace with actual UE X coordinate
+        y: 15.0                    # TODO: Replace with actual UE Y coordinate
+        z: -3.2                    # TODO: Landing platform Z + 1.2m offset
+        difficulty: 3
+        enabled: true
+        
+      - name: "Landing_104"
+        x: 25.0                    # TODO: Replace with actual UE X coordinate
+        y: 20.0                    # TODO: Replace with actual UE Y coordinate
+        z: -3.2                    # TODO: Landing platform Z + 1.2m offset
+        difficulty: 4
+        enabled: true
+        
+      - name: "Landing_103"
+        x: 30.0                    # TODO: Replace with actual UE X coordinate
+        y: 25.0                    # TODO: Replace with actual UE Y coordinate
+        z: -3.2                    # TODO: Landing platform Z + 1.2m offset
+        difficulty: 5
+        enabled: true
+        
+      - name: "Landing_105"
+        x: 35.0                    # TODO: Replace with actual UE X coordinate
+        y: 30.0                    # TODO: Replace with actual UE Y coordinate
+        z: -3.2                    # TODO: Landing platform Z + 1.2m offset
+        difficulty: 6              # Hardest
+        enabled: true
+  
+  # Building Configuration
+  building:
+    floors: 1
+    floor_height: 5.0              # meters per floor
+    floor_size: [80, 80]           # [width, length] in meters
+  
+  # WorldBuilder - DISABLED for real UE environment
+  world_builder:
+    enabled: false                 # Use real UE map instead of synthetic
+    use_real_environment: true     # Flag for documentation
+    
+  # Obstacles - Detection only, no generation
+  obstacles:
+    density: 0.0                   # Do NOT generate obstacles
+    use_airsim_detection: true     # Detect collisions from UE
+    min_distance: 2.0
+    dynamic_count: 0               # No synthetic dynamic obstacles
+    
+  # Episode Settings
+  episode:
+    max_steps: 1000                # Max steps per episode
+    timeout: 300                   # seconds
+    goal_tolerance: 1.0            # Success if within 1.0m of target
+    
+  # Reward Weights (Equation 2 coefficients)
+  reward:
+    goal_bonus: 500.0              # 500·1{goal}
+    distance_penalty: 5.0          # -5·d_t
+    time_penalty: 0.1              # -0.1·Δt
+    thrust_penalty: 0.01           # -0.01·Σu_i²
+    jerk_penalty: 10.0             # -10·j_t
+    collision_penalty: 1000.0      # -1000·c_t
+    control_dt: 0.05               # Δt = 0.05s
+    goal_tolerance: 1.0            # Goal reached within 1.0m
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+logging:
+  level: "INFO"
+  console: true
+  file: true
+  log_dir: "logs"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  experiment_name: "floor1_all_landings"

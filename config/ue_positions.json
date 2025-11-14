@@ -1,0 +1,57 @@
+{
+  "DroneSpawn": {
+    "name": "DroneSpawn",
+    "x": 0.0,
+    "y": 0.0,
+    "z": -0.0,
+    "success": true
+  },
+  "Landing_101": {
+    "name": "Landing_101",
+    "x": 0.0,
+    "y": 30.0,
+    "z": 2.169999837875366,
+    "success": true
+  },
+  "Landing_102": {
+    "name": "Landing_102",
+    "x": -20.0,
+    "y": 85.0,
+    "z": 2.169999837875366,
+    "success": true
+  },
+  "Landing_103": {
+    "name": "Landing_103",
+    "x": -105.0,
+    "y": 90.0,
+    "z": 2.169999837875366,
+    "success": true
+  },
+  "Landing_104": {
+    "name": "Landing_104",
+    "x": -60.0,
+    "y": 50.0,
+    "z": 2.169999837875366,
+    "success": true
+  },
+  "Landing_105": {
+    "name": "Landing_105",
+    "x": -95.0,
+    "y": -18.0,
+    "z": 2.169999837875366,
+    "success": true
+  },
+  "Landing_106": {
+    "name": "Landing_106",
+    "x": -30.0,
+    "y": -10.0,
+    "z": 2.169999837875366,
+    "success": true
+  },
+  "CurrentDrone": {
+    "name": "CurrentDrone",
+    "x": -8.314847832480154e-08,
+    "y": 1.126155240172011e-07,
+    "z": 1.3086358308792114
+  }
+}

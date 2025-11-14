@@ -41,6 +41,9 @@ class TargetManager:
         self.config = config
         self.logger = logging.getLogger(__name__)
 
+        # Check if custom positions are provided in config
+        self.custom_positions = config.get("positions", {}).get("landing_points", [])
+        
         # Building specifications (from report)
         self.num_floors = config.get("num_floors", 5)
         self.targets_per_floor = config.get("targets_per_floor", 6)
@@ -60,8 +63,13 @@ class TargetManager:
         self.min_target_separation = config.get("min_target_separation", 3.0)  # meters
         self.wall_clearance = config.get("wall_clearance", 1.0)  # meters from walls
 
-        # Generate all targets (Landing_101-506)
-        self.targets = self._generate_all_targets()
+        # Generate all targets (Landing_101-506 or from custom config)
+        if self.custom_positions:
+            self.targets = self._load_custom_targets()
+            self.logger.info(f"Loaded {len(self.targets)} custom targets from config")
+        else:
+            self.targets = self._generate_all_targets()
+            self.logger.info(f"Generated {len(self.targets)} default targets")
 
         # Current episode target
         self.current_target: Optional[LandingTarget] = None
@@ -77,6 +85,55 @@ class TargetManager:
         self.logger.info(
             f"Targets per floor: {self.targets_per_floor}, Curriculum enabled: {self.curriculum_enabled}"
         )
+
+    def _load_custom_targets(self) -> Dict[str, LandingTarget]:
+        """
+        Load custom landing targets from config.
+        
+        Returns:
+            Dictionary mapping target names to LandingTarget objects
+        """
+        targets = {}
+        
+        for landing_config in self.custom_positions:
+            if not landing_config.get("enabled", True):
+                continue
+                
+            name = landing_config["name"]
+            position = (
+                float(landing_config["x"]),
+                float(landing_config["y"]),
+                float(landing_config["z"])
+            )
+            
+            # Extract floor from name (e.g., "Landing_101" -> floor 1)
+            try:
+                floor_num = int(name.split("_")[1][0])
+            except:
+                floor_num = 1
+            
+            # Map difficulty value to enum
+            difficulty_value = landing_config.get("difficulty", 1)
+            if difficulty_value <= 2:
+                difficulty = TargetDifficulty.EASY
+            elif difficulty_value <= 4:
+                difficulty = TargetDifficulty.MEDIUM
+            else:
+                difficulty = TargetDifficulty.HARD
+            
+            target = LandingTarget(
+                name=name,
+                floor=floor_num,
+                position=position,
+                difficulty=difficulty,
+                accessible=True,
+                obstacles_nearby=0
+            )
+            
+            targets[name] = target
+            self.logger.debug(f"Loaded custom target: {name} at {position}")
+        
+        return targets
 
     def _generate_all_targets(self) -> Dict[str, LandingTarget]:
         """

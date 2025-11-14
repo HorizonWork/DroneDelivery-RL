@@ -1,0 +1,152 @@
+# ============================================================================
+# TRAINING CONFIGURATION - Landing_101 (Easiest Target)
+# Test configuration for single landing point on Floor 1
+# ============================================================================
+
+# RL Training Configuration
+rl:
+  seed: 42
+  
+  # PPO Algorithm Parameters
+  ppo:
+    learning_rate: 0.0003
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_epsilon: 0.2
+    value_coef: 0.5
+    entropy_coef: 0.01
+    max_grad_norm: 0.5
+    batch_size: 64
+    n_epochs: 10
+    
+  # Network Architecture
+  network:
+    hidden_dims: [256, 256]
+    activation: "relu"
+    use_layer_norm: true
+    
+  # Training Settings
+  training:
+    total_timesteps: 500000           # 500K timesteps for initial test
+    eval_frequency: 25000             # Eval every 25k steps
+    checkpoint_frequency: 50000       # Save every 50k steps
+    phase_eval_frequency: 5000        # Quick eval every 5k steps
+    
+  # Curriculum Learning - DISABLED for single target
+  curriculum:
+    enabled: false
+    phases:
+      - name: "landing_101_only"
+        min_timesteps: 500000
+        success_threshold: 0.85
+        config:
+          floors: 1
+          target_point: "Landing_101"
+          obstacle_density: 0.2        # Low obstacles for learning
+          dynamic_obstacles: 0
+  
+  # Observation Normalization
+  normalization:
+    enabled: true
+    clip_range: 10.0
+    
+  # Checkpoints
+  checkpoints:
+    save_dir: "checkpoints"
+    keep_best: true
+    keep_last_n: 3
+    
+  # TensorBoard Logging
+  logging:
+    log_dir: "runs"
+    log_interval: 100
+
+# ============================================================================
+# AirSim Environment Configuration
+# ============================================================================
+
+environment:
+  # AirSim Connection
+  airsim:
+    ip: "127.0.0.1"
+    port: 41451
+    timeout: 60
+    drone_name: "Drone1"
+    spawn_location: [0.0, 0.0, -2.0]  # [x, y, z] in AirSim NED coordinates
+    spawn_orientation: [0.0, 0.0, 0.0]  # [pitch, roll, yaw] in radians
+    max_velocity: 5.0
+    max_yaw_rate: 1.0
+    control_frequency: 20.0
+    camera_frequency: 30.0
+    camera_resolution: [640, 480]
+    
+  # Drone Settings
+  drone:
+    name: "Drone1"
+    max_velocity: 5.0              # m/s
+    max_acceleration: 2.0          # m/s²
+    
+  # Spawn and Target Positions (UE Coordinates)
+  # Note: Z coordinates are NEGATIVE in UE (down is positive Z in AirSim, up is negative Z in UE)
+  positions:
+    spawn_point:
+      name: "DroneSpawn"
+      x: 0.0                       # Replace with actual UE X coordinate
+      y: 0.0                       # Replace with actual UE Y coordinate
+      z: -2.0                      # Replace with actual UE Z coordinate (negative for up)
+      yaw: 0.0                     # Initial orientation
+    
+    landing_points:
+      - name: "Landing_101"        # EASIEST - Training target
+        x: 0.0                    # Replace with actual UE X coordinate
+        y: 30.0                     # Replace with actual UE Y coordinate
+        z: -3.3                    # Landing platform Z + 1.2m offset
+        difficulty: 1
+        enabled: true
+  
+  # Building Configuration
+  building:
+    floors: 1
+    floor_height: 5.0              # meters per floor
+    floor_size: [80, 80]           # [width, length] in meters
+  
+  # WorldBuilder - DISABLED for real UE environment
+  world_builder:
+    enabled: false                 # Use real UE map instead of synthetic
+    use_real_environment: true     # Flag for documentation
+    
+  # Obstacles - Detection only, no generation
+  obstacles:
+    density: 0.0                   # Do NOT generate obstacles
+    use_airsim_detection: true     # Detect collisions from UE
+    min_distance: 2.0
+    dynamic_count: 0               # No synthetic dynamic obstacles
+    
+  # Episode Settings
+  episode:
+    max_steps: 1000                # Max steps per episode
+    timeout: 300                   # seconds
+    goal_tolerance: 1.0            # Success if within 1.0m of target
+    
+  # Reward Weights (Equation 2 coefficients)
+  reward:
+    goal_bonus: 500.0              # 500·1{goal}
+    distance_penalty: 5.0          # -5·d_t
+    time_penalty: 0.1              # -0.1·Δt
+    thrust_penalty: 0.01           # -0.01·Σu_i²
+    jerk_penalty: 10.0             # -10·j_t
+    collision_penalty: 1000.0      # -1000·c_t
+    control_dt: 0.05               # Δt = 0.05s
+    goal_tolerance: 1.0            # Goal reached within 1.0m
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+logging:
+  level: "INFO"
+  console: true
+  file: true
+  log_dir: "logs"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  experiment_name: "landing_101_test"

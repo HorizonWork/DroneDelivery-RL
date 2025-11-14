@@ -1,0 +1,124 @@
+# ============================================================================
+# MAIN CONFIGURATION - Single Floor Training
+# ============================================================================
+
+# RL Training Configuration
+rl:
+  seed: 42
+  
+  # PPO Algorithm Parameters
+  ppo:
+    learning_rate: 0.0003
+    gamma: 0.99
+    gae_lambda: 0.95
+    clip_epsilon: 0.2
+    value_coef: 0.5
+    entropy_coef: 0.01
+    max_grad_norm: 0.5
+    batch_size: 64
+    n_epochs: 10
+    
+  # Network Architecture
+  network:
+    hidden_dims: [256, 256]
+    activation: "relu"
+    use_layer_norm: true
+    
+  # Training Settings
+  training:
+    total_timesteps: 2000000      # Giảm xuống 2M cho 1 tầng
+    eval_frequency: 50000
+    checkpoint_frequency: 100000
+    phase_eval_frequency: 10000
+    
+  # Curriculum Learning - TẮT curriculum, chỉ 1 phase duy nhất
+  curriculum:
+    enabled: false                # TẮT curriculum
+    phases:
+      - name: "single_floor"
+        min_timesteps: 2000000
+        success_threshold: 0.85   # Target cao hơn vì chỉ 1 tầng
+        config:
+          floors: 1               # CHỈ 1 TẦNG
+          obstacle_density: 0.3   # Density thấp để dễ học
+          dynamic_obstacles: 0    # Không có dynamic obstacles
+  
+  # Observation Normalization
+  normalization:
+    enabled: true
+    clip_range: 10.0
+    
+  # Checkpoints
+  checkpoints:
+    save_dir: "checkpoints"
+    keep_best: true
+    keep_last_n: 3
+    
+  # TensorBoard Logging
+  logging:
+    log_dir: "runs"
+    log_interval: 100
+
+# ============================================================================
+# AirSim Environment Configuration
+# ============================================================================
+
+environment:
+  # AirSim Connection
+  airsim:
+    ip: "127.0.0.1"
+    port: 41451
+    timeout: 60
+    
+  # Drone Settings
+  drone:
+    name: "Drone1"
+    max_velocity: 5.0
+    max_acceleration: 2.0
+    
+  # Building Configuration
+  building:
+    floors: 1                     # CHỈ 1 TẦNG
+    floor_height: 5.0
+    floor_size: [80, 80]
+    
+  # Obstacles
+  obstacles:
+    density: 0.3                  # Mật độ thấp
+    min_distance: 2.0
+    dynamic_count: 0              # Không có dynamic obstacles
+    
+  # Episode Settings
+  episode:
+    max_steps: 500                # Giảm max steps vì chỉ 1 tầng
+    timeout: 180
+    
+  # Reward Weights
+  rewards:
+    goal_reached: 500.0
+    progress: 1.0
+    collision: -1000.0
+    timeout: -50.0
+    energy_penalty: -0.1
+    stability: 0.5
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+logging:
+  level: "INFO"
+  console: true
+  file: true
+  log_dir: "logs"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# ============================================================================
+# Data Recording
+# ============================================================================
+
+recording:
+  save_trajectories: true
+  save_energy_profiles: true
+  save_interval: 1000
+  output_dir: "data/recordings"

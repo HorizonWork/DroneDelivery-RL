@@ -66,8 +66,15 @@ class AirSimEnvironment(gym.Env):
         controller_config["strict_acceleration_check"] = False
         self.drone_controller = DroneController(controller_config)
         
-        self.world_builder = WorldBuilder(config)
-        self.logger.info("WorldBuilder created")
+        # WorldBuilder - Optional for synthetic environments
+        world_config = config.get("world_builder", {})
+        if world_config.get("enabled", False):
+            self.world_builder = WorldBuilder(config)
+            self.logger.info("WorldBuilder created - SYNTHETIC environment")
+        else:
+            self.world_builder = None
+            self.logger.info("WorldBuilder DISABLED - using REAL UE environment")
+        
         self.logger.info("=" * 50)
         self.logger.info("STARTING BRIDGE INITIALIZATION")
         self.logger.info("=" * 50)
