@@ -1,5 +1,3 @@
-"""Test environment functionality and integration"""
-
 import os
 import pytest
 import numpy as np
@@ -17,20 +15,18 @@ pytestmark = [
     ),
 ]
 
-
 class TestEnvironment:
-    """Test class for environment functionality"""
 
     def test_action_space_initialization(self):
-        """Test action space initialization"""
+
         action_space = ActionSpace()
         assert action_space is not None
         assert hasattr(action_space, "action_map")
-        assert len(action_space.action_map) > 0
+        assert len(action_space.action_map)  0
         print("Action space initialization successful")
 
     def test_observation_space_initialization(self):
-        """Test observation space initialization"""
+
         obs_space = ObservationSpace()
         assert obs_space is not None
         assert hasattr(obs_space, "observation_shape")
@@ -38,7 +34,7 @@ class TestEnvironment:
         print("Observation space initialization successful")
 
     def test_drone_controller_initialization(self):
-        """Test drone controller initialization"""
+
         try:
             controller = DroneController()
             assert controller is not None
@@ -49,7 +45,7 @@ class TestEnvironment:
             pytest.skip(f"Drone controller initialization requires AirSim: {str(e)}")
 
     def test_environment_initialization(self):
-        """Test environment initialization"""
+
         try:
             env = AirSimEnv()
             assert env is not None
@@ -61,7 +57,7 @@ class TestEnvironment:
             pytest.skip(f"Environment initialization requires AirSim: {str(e)}")
 
     def test_environment_reset(self):
-        """Test environment reset functionality"""
+
         try:
             env = AirSimEnv()
             obs = env.reset()
@@ -72,13 +68,12 @@ class TestEnvironment:
             pytest.skip(f"Environment reset failed: {str(e)}")
 
     def test_environment_step(self):
-        """Test environment step functionality"""
+
         try:
             env = AirSimEnv()
             env.reset()
 
-            # Test a simple action (e.g., hover)
-            action = 0  # Assuming 0 is a valid action for hovering
+            action = 0
             obs, reward, done, info = env.step(action)
 
             assert obs is not None
@@ -91,13 +86,12 @@ class TestEnvironment:
             pytest.skip(f"Environment step failed: {str(e)}")
 
     def test_environment_observation_shape(self):
-        """Test that observations have the expected shape"""
+
         try:
             env = AirSimEnv()
             obs = env.reset()
             obs_space = ObservationSpace()
 
-            # Check if observation matches expected shape
             expected_shape = obs_space.observation_shape
             actual_shape = None
 
@@ -117,12 +111,11 @@ class TestEnvironment:
             pytest.skip(f"Observation shape test failed: {str(e)}")
 
     def test_environment_reward_calculation(self):
-        """Test reward calculation functionality"""
+
         try:
             env = AirSimEnv()
             env.reset()
 
-            # Perform a step and check reward
             action = 0
             obs, reward, done, info = env.step(action)
 

@@ -1,9 +1,3 @@
-"""
-Path Smoother
-Advanced path smoothing utilities for better execution.
-Integrates global A* and local S-RRT paths seamlessly.
-"""
-
 import numpy as np
 import time
 import logging
@@ -12,10 +6,8 @@ from scipy.interpolate import splprep, splev, interp1d
 from scipy.optimize import minimize_scalar
 from dataclasses import dataclass
 
-
-@dataclass
+dataclass
 class SmoothingResult:
-    """Path smoothing result."""
 
     smoothed_path: List[Tuple[float, float, float]]
     original_length: float
@@ -24,39 +16,30 @@ class SmoothingResult:
     smoothing_time: float
     success: bool
 
-
 class PathSmoother:
-    """
-    Advanced path smoothing for seamless global-local integration.
-    Ensures smooth transitions between A* and S-RRT path segments.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-        # Smoothing parameters
         self.method = config.get(
             "smoothing_method", "spline"
-        )  # spline, bezier, gradient
-        self.spline_degree = config.get("spline_degree", 3)  # cubic splines
+        )
+        self.spline_degree = config.get("spline_degree", 3)
         self.smoothness_factor = config.get(
             "smoothness_factor", 0.1
-        )  # 0 = exact fit, higher = smoother
+        )
 
-        # Resampling parameters
         self.target_point_spacing = config.get(
             "target_spacing", 0.5
-        )  # meters between points
+        )
         self.min_points_per_meter = config.get("min_points_per_meter", 2)
 
-        # Kinematic constraints
-        self.max_velocity = config.get("max_velocity", 3.0)  # m/s
-        self.max_acceleration = config.get("max_acceleration", 2.0)  # m/s²
-        self.max_jerk = config.get("max_jerk", 5.0)  # m/s³
+        self.max_velocity = config.get("max_velocity", 3.0)
+        self.max_acceleration = config.get("max_acceleration", 2.0)
+        self.max_jerk = config.get("max_jerk", 5.0)
 
-        # Transition smoothing
-        self.transition_blend_distance = config.get("transition_blend", 2.0)  # meters
+        self.transition_blend_distance = config.get("transition_blend", 2.0)
 
         self.logger.info("Path Smoother initialized")
         self.logger.info(f"Method: {self.method}, Degree: {self.spline_degree}")
@@ -67,18 +50,9 @@ class PathSmoother:
 
     def smooth_path(
         self, path: List[Tuple[float, float, float]], method: Optional[str] = None
-    ) -> SmoothingResult:
-        """
-        Smooth path using specified method.
+    ) - SmoothingResult:
 
-        Args:
-            path: Original path to smooth
-            method: Smoothing method override
-
-        Returns:
-            Smoothing result
-        """
-        if len(path) < 3:
+        if len(path)  3:
             return SmoothingResult(
                 smoothed_path=path,
                 original_length=0,
@@ -92,10 +66,8 @@ class PathSmoother:
         smoothing_method = method or self.method
 
         try:
-            # Calculate original path length
             original_length = self._calculate_path_length(path)
 
-            # Apply smoothing
             if smoothing_method == "spline":
                 smoothed_path = self._smooth_with_spline(path)
             elif smoothing_method == "bezier":
@@ -103,13 +75,11 @@ class PathSmoother:
             elif smoothing_method == "gradient":
                 smoothed_path = self._smooth_with_gradient_descent(path)
             else:
-                smoothed_path = path  # No smoothing
+                smoothed_path = path
 
-            # Calculate smoothed path metrics
             smoothed_length = self._calculate_path_length(smoothed_path)
             max_curvature = self._calculate_max_curvature(smoothed_path)
 
-            # Validate kinematic constraints
             if not self._validate_kinematic_constraints(smoothed_path):
                 self.logger.warning("Smoothed path violates kinematic constraints")
                 smoothed_path = self._enforce_kinematic_constraints(smoothed_path)
@@ -139,27 +109,17 @@ class PathSmoother:
 
     def _smooth_with_spline(
         self, path: List[Tuple[float, float, float]]
-    ) -> List[Tuple[float, float, float]]:
-        """
-        Smooth path using cubic spline interpolation.
+    ) - List[Tuple[float, float, float]]:
 
-        Args:
-            path: Original path
-
-        Returns:
-            Spline-smoothed path
-        """
-        if len(path) < 4:  # Need at least 4 points for cubic spline
+        if len(path)  4:
             return path
 
         path_array = np.array(path)
 
-        # Parameterize by cumulative distance
         distances = np.cumsum(
             np.concatenate(([0], np.linalg.norm(np.diff(path_array, axis=0), axis=1)))
         )
 
-        # Fit spline
         tck, u = splprep(
             [path_array[:, 0], path_array[:, 1], path_array[:, 2]],
             u=distances,
@@ -167,7 +127,6 @@ class PathSmoother:
             k=self.spline_degree,
         )
 
-        # Generate smoothed path with target spacing
         total_distance = distances[-1]
         num_points = max(len(path), int(total_distance / self.target_point_spacing))
         u_new = np.linspace(0, total_distance, num_points)
@@ -181,64 +140,49 @@ class PathSmoother:
 
     def _smooth_with_bezier(
         self, path: List[Tuple[float, float, float]]
-    ) -> List[Tuple[float, float, float]]:
-        """
-        Smooth path using Bezier curve approximation.
+    ) - List[Tuple[float, float, float]]:
 
-        Args:
-            path: Original path
-
-        Returns:
-            Bezier-smoothed path
-        """
-        # Simplified Bezier smoothing - fit Bezier curves to path segments
-        if len(path) < 4:
+        if len(path)  4:
             return path
 
         smoothed_path = []
 
-        # Process path in overlapping segments
         segment_size = 4
         for i in range(0, len(path) - segment_size + 1, segment_size - 1):
             segment = path[i : i + segment_size]
 
-            # Generate Bezier curve for segment
             bezier_points = self._generate_bezier_curve(
                 segment, 10
-            )  # 10 points per segment
+            )
 
-            # Avoid duplicate points at segment boundaries
-            if i > 0:
+            if i  0:
                 bezier_points = bezier_points[1:]
 
             smoothed_path.extend(bezier_points)
 
-        # Add remaining path points if any
-        if len(path) % (segment_size - 1) != 1:
+        if len(path)  (segment_size - 1) != 1:
             smoothed_path.extend(path[len(smoothed_path) :])
 
         return smoothed_path
 
     def _generate_bezier_curve(
         self, control_points: List[Tuple[float, float, float]], num_points: int
-    ) -> List[Tuple[float, float, float]]:
-        """Generate Bezier curve from control points."""
+    ) - List[Tuple[float, float, float]]:
+
         if len(control_points) != 4:
             return control_points
 
         P0, P1, P2, P3 = [np.array(p) for p in control_points]
 
-        # Generate Bezier curve points
         bezier_points = []
         for i in range(num_points):
             t = i / (num_points - 1)
 
-            # Cubic Bezier formula
             point = (
-                (1 - t) ** 3 * P0
-                + 3 * (1 - t) ** 2 * t * P1
-                + 3 * (1 - t) * t**2 * P2
-                + t**3 * P3
+                (1 - t)  3  P0
+                + 3  (1 - t)  2  t  P1
+                + 3  (1 - t)  t2  P2
+                + t3  P3
             )
 
             bezier_points.append(tuple(point))
@@ -247,32 +191,20 @@ class PathSmoother:
 
     def _smooth_with_gradient_descent(
         self, path: List[Tuple[float, float, float]]
-    ) -> List[Tuple[float, float, float]]:
-        """
-        Smooth path using gradient descent optimization.
+    ) - List[Tuple[float, float, float]]:
 
-        Args:
-            path: Original path
-
-        Returns:
-            Gradient-optimized path
-        """
-        # Simple iterative smoothing
-        if len(path) < 3:
+        if len(path)  3:
             return path
 
         path_array = np.array(path)
         smoothed = path_array.copy()
 
-        # Apply iterative averaging (simplified gradient descent)
         for iteration in range(10):
             for i in range(1, len(smoothed) - 1):
-                # Weighted average of neighbors
                 neighbor_avg = (smoothed[i - 1] + smoothed[i + 1]) / 2
 
-                # Blend with current position
-                alpha = 0.3  # Smoothing strength
-                smoothed[i] = (1 - alpha) * smoothed[i] + alpha * neighbor_avg
+                alpha = 0.3
+                smoothed[i] = (1 - alpha)  smoothed[i] + alpha  neighbor_avg
 
         return [(float(p[0]), float(p[1]), float(p[2])) for p in smoothed]
 
@@ -281,32 +213,19 @@ class PathSmoother:
         global_path: List[Tuple[float, float, float]],
         local_path: List[Tuple[float, float, float]],
         blend_point: Tuple[float, float, float],
-    ) -> List[Tuple[float, float, float]]:
-        """
-        Smoothly blend global A* path with local S-RRT path.
+    ) - List[Tuple[float, float, float]]:
 
-        Args:
-            global_path: Global A* path
-            local_path: Local S-RRT path
-            blend_point: Position where paths should blend
-
-        Returns:
-            Blended path
-        """
         if not global_path or not local_path:
             return global_path or local_path
 
-        # Find blend points in both paths
         global_blend_idx = self._find_closest_waypoint(global_path, blend_point)
         local_blend_idx = self._find_closest_waypoint(local_path, blend_point)
 
-        # Create transition zone
         transition_segment = self._create_smooth_transition(
             global_path[max(0, global_blend_idx - 2) : global_blend_idx + 1],
             local_path[local_blend_idx : min(len(local_path), local_blend_idx + 3)],
         )
 
-        # Combine path segments
         blended_path = (
             global_path[:global_blend_idx]
             + transition_segment
@@ -319,15 +238,15 @@ class PathSmoother:
         self,
         path: List[Tuple[float, float, float]],
         target_point: Tuple[float, float, float],
-    ) -> int:
-        """Find index of closest waypoint in path."""
+    ) - int:
+
         target_array = np.array(target_point)
         min_distance = float("inf")
         closest_idx = 0
 
         for i, waypoint in enumerate(path):
             distance = np.linalg.norm(np.array(waypoint) - target_array)
-            if distance < min_distance:
+            if distance  min_distance:
                 min_distance = distance
                 closest_idx = i
 
@@ -337,12 +256,11 @@ class PathSmoother:
         self,
         end_segment: List[Tuple[float, float, float]],
         start_segment: List[Tuple[float, float, float]],
-    ) -> List[Tuple[float, float, float]]:
-        """Create smooth transition between path segments."""
+    ) - List[Tuple[float, float, float]]:
+
         if not end_segment or not start_segment:
             return []
 
-        # Use simple linear blending
         transition_points = []
         num_transition_points = 5
 
@@ -351,14 +269,14 @@ class PathSmoother:
 
         for i in range(num_transition_points):
             t = i / (num_transition_points - 1)
-            transition_point = end_point + t * (start_point - end_point)
+            transition_point = end_point + t  (start_point - end_point)
             transition_points.append(tuple(transition_point))
 
         return transition_points
 
-    def _calculate_path_length(self, path: List[Tuple[float, float, float]]) -> float:
-        """Calculate total path length."""
-        if len(path) < 2:
+    def _calculate_path_length(self, path: List[Tuple[float, float, float]]) - float:
+
+        if len(path)  2:
             return 0.0
 
         total_length = 0.0
@@ -368,31 +286,28 @@ class PathSmoother:
 
         return total_length
 
-    def _calculate_max_curvature(self, path: List[Tuple[float, float, float]]) -> float:
-        """Calculate maximum curvature along path."""
-        if len(path) < 3:
+    def _calculate_max_curvature(self, path: List[Tuple[float, float, float]]) - float:
+
+        if len(path)  3:
             return 0.0
 
         path_array = np.array(path)
         max_curvature = 0.0
 
         for i in range(1, len(path_array) - 1):
-            # Three consecutive points
             p1 = path_array[i - 1]
             p2 = path_array[i]
             p3 = path_array[i + 1]
 
-            # Calculate curvature using discrete approximation
             v1 = p2 - p1
             v2 = p3 - p2
 
-            # Cross product magnitude gives curvature numerator
-            if len(v1) == 3 and len(v2) == 3:  # 3D case
+            if len(v1) == 3 and len(v2) == 3:
                 cross_product = np.cross(v1, v2)
                 numerator = np.linalg.norm(cross_product)
-                denominator = np.linalg.norm(v1) ** 3
+                denominator = np.linalg.norm(v1)  3
 
-                if denominator > 1e-6:
+                if denominator  1e-6:
                     curvature = numerator / denominator
                     max_curvature = max(max_curvature, curvature)
 
@@ -400,110 +315,75 @@ class PathSmoother:
 
     def _validate_kinematic_constraints(
         self, path: List[Tuple[float, float, float]]
-    ) -> bool:
-        """
-        Validate path satisfies kinematic constraints.
+    ) - bool:
 
-        Args:
-            path: Path to validate
-
-        Returns:
-            True if constraints satisfied
-        """
-        if len(path) < 2:
+        if len(path)  2:
             return True
 
-        # Estimate time between waypoints
-        dt = self.target_point_spacing / self.max_velocity  # Conservative estimate
+        dt = self.target_point_spacing / self.max_velocity
 
         path_array = np.array(path)
 
-        # Check velocity constraints
         velocities = np.diff(path_array, axis=0) / dt
         velocity_magnitudes = np.linalg.norm(velocities, axis=1)
 
-        if np.any(velocity_magnitudes > self.max_velocity):
+        if np.any(velocity_magnitudes  self.max_velocity):
             return False
 
-        # Check acceleration constraints
-        if len(path) > 2:
+        if len(path)  2:
             accelerations = np.diff(velocities, axis=0) / dt
             acceleration_magnitudes = np.linalg.norm(accelerations, axis=1)
 
-            if np.any(acceleration_magnitudes > self.max_acceleration):
+            if np.any(acceleration_magnitudes  self.max_acceleration):
                 return False
 
-        # Check jerk constraints
-        if len(path) > 3:
+        if len(path)  3:
             jerks = np.diff(accelerations, axis=0) / dt
             jerk_magnitudes = np.linalg.norm(jerks, axis=1)
 
-            if np.any(jerk_magnitudes > self.max_jerk):
+            if np.any(jerk_magnitudes  self.max_jerk):
                 return False
 
         return True
 
     def _enforce_kinematic_constraints(
         self, path: List[Tuple[float, float, float]]
-    ) -> List[Tuple[float, float, float]]:
-        """
-        Enforce kinematic constraints by adjusting path.
+    ) - List[Tuple[float, float, float]]:
 
-        Args:
-            path: Original path
-
-        Returns:
-            Kinematically feasible path
-        """
-        if len(path) < 2:
+        if len(path)  2:
             return path
 
-        # Simple approach: increase point spacing to reduce velocities
         path_array = np.array(path)
 
-        # Calculate required spacing to satisfy velocity constraint
         segment_lengths = np.linalg.norm(np.diff(path_array, axis=0), axis=1)
         max_segment_length = np.max(segment_lengths)
 
-        # If max segment > max_velocity * reasonable_dt, need more points
-        reasonable_dt = 0.1  # 10Hz waypoint following
-        max_allowed_length = self.max_velocity * reasonable_dt
+        reasonable_dt = 0.1
+        max_allowed_length = self.max_velocity  reasonable_dt
 
-        if max_segment_length > max_allowed_length:
-            # Resample path with smaller spacing
-            new_spacing = max_allowed_length / 2  # Conservative
+        if max_segment_length  max_allowed_length:
+            new_spacing = max_allowed_length / 2
             return self.resample_path(path, new_spacing)
 
         return path
 
     def resample_path(
         self, path: List[Tuple[float, float, float]], target_spacing: float
-    ) -> List[Tuple[float, float, float]]:
-        """
-        Resample path to uniform point spacing.
+    ) - List[Tuple[float, float, float]]:
 
-        Args:
-            path: Original path
-            target_spacing: Desired spacing between points
-
-        Returns:
-            Resampled path
-        """
-        if len(path) < 2:
+        if len(path)  2:
             return path
 
         path_array = np.array(path)
 
-        # Calculate cumulative distances
         segment_lengths = np.linalg.norm(np.diff(path_array, axis=0), axis=1)
         cumulative_distances = np.concatenate(([0], np.cumsum(segment_lengths)))
 
         total_length = cumulative_distances[-1]
 
-        if total_length <= target_spacing:
+        if total_length = target_spacing:
             return path
 
-        # Create interpolation functions for each dimension
         interp_x = interp1d(
             cumulative_distances,
             path_array[:, 0],
@@ -526,7 +406,6 @@ class PathSmoother:
             fill_value="extrapolate",
         )
 
-        # Generate resampled points
         num_points = int(np.ceil(total_length / target_spacing)) + 1
         sample_distances = np.linspace(0, total_length, num_points)
 
@@ -541,36 +420,24 @@ class PathSmoother:
 
     def calculate_path_quality(
         self, path: List[Tuple[float, float, float]]
-    ) -> Dict[str, float]:
-        """
-        Calculate path quality metrics.
+    ) - Dict[str, float]:
 
-        Args:
-            path: Path to analyze
-
-        Returns:
-            Quality metrics dictionary
-        """
-        if len(path) < 2:
+        if len(path)  2:
             return {"error": "Path too short"}
 
-        # Basic metrics
         total_length = self._calculate_path_length(path)
         max_curvature = self._calculate_max_curvature(path)
 
-        # Smoothness metrics
         path_array = np.array(path)
 
-        # Calculate segment length variation (lower is smoother)
         segment_lengths = np.linalg.norm(np.diff(path_array, axis=0), axis=1)
         length_variation = (
             np.std(segment_lengths) / np.mean(segment_lengths)
-            if len(segment_lengths) > 0
+            if len(segment_lengths)  0
             else 0
         )
 
-        # Calculate direction changes
-        if len(path) > 2:
+        if len(path)  2:
             directions = np.diff(path_array, axis=0)
             unit_directions = directions / (
                 np.linalg.norm(directions, axis=1, keepdims=True) + 1e-8
@@ -603,8 +470,8 @@ class PathSmoother:
             "num_waypoints": len(path),
         }
 
-    def get_smoother_info(self) -> Dict[str, Any]:
-        """Get path smoother configuration information."""
+    def get_smoother_info(self) - Dict[str, Any]:
+
         return {
             "method": self.method,
             "parameters": {

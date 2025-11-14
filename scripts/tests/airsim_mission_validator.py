@@ -1,19 +1,3 @@
-#!/usr/bin/env python3
-"""
-AirSim Mission Validator
-========================
-
-Utility script to verify end-to-end connectivity with the AirSim simulator,
-execute a multi-waypoint mission, and capture rich telemetry/energy statistics.
-
-Example:
-    python scripts/tests/airsim_mission_validator.py \
-        --waypoints "0,0,-2;5,0,-2;5,5,-2" \
-        --vehicle-name Drone1 \
-        --cruise-speed 2.0 \
-        --log-file logs/airsim_mission_report.json
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -35,9 +19,8 @@ if str(ROOT) not in sys.path:
 
 from src.bridges.airsim_bridge import AirSimBridge
 
+def parse_waypoints(spec: str) - List[Tuple[float, float, float]]:
 
-def parse_waypoints(spec: str) -> List[Tuple[float, float, float]]:
-    """Parse a waypoint specification string."""
     waypoints: List[Tuple[float, float, float]] = []
     for chunk in spec.split(";"):
         values = [float(v.strip()) for v in chunk.split(",")]
@@ -48,9 +31,8 @@ def parse_waypoints(spec: str) -> List[Tuple[float, float, float]]:
         waypoints.append(tuple(values))
     return waypoints
 
+def default_waypoints() - List[Tuple[float, float, float]]:
 
-def default_waypoints() -> List[Tuple[float, float, float]]:
-    """Return an elongated rectangle path to stress-test API throughput."""
     return [
         (0.0, 0.0, -2.0),
         (8.0, 0.0, -2.0),
@@ -58,23 +40,20 @@ def default_waypoints() -> List[Tuple[float, float, float]]:
         (0.0, 6.0, -2.0),
     ]
 
+def quaternion_to_tilt_deg(quat: Sequence[float]) - float:
 
-def quaternion_to_tilt_deg(quat: Sequence[float]) -> float:
-    """Return the maximum tilt (deg) from a quaternion (w, x, y, z)."""
     rotation = R.from_quat([quat[1], quat[2], quat[3], quat[0]])
     roll, pitch, _ = rotation.as_euler("xyz", degrees=True)
     return max(abs(roll), abs(pitch))
 
-
 class TelemetryRecorder:
-    """Collect telemetry samples and estimate energy usage."""
 
     def __init__(
         self,
         poll_interval: float,
         horiz_energy_per_meter: float,
         vert_energy_per_meter: float,
-    ) -> None:
+    ) - None:
         self.poll_interval = poll_interval
         self.horiz_coef = horiz_energy_per_meter
         self.vert_coef = vert_energy_per_meter
@@ -82,13 +61,13 @@ class TelemetryRecorder:
         self.total_energy_j = 0.0
         self.max_tilt_deg = 0.0
         self._segment_index = -1
-        self._target: Tuple[float, float, float] | None = None
+        self._target: Tuple[float, float, float]  None = None
 
-    def start_segment(self, idx: int, target: Tuple[float, float, float]) -> None:
+    def start_segment(self, idx: int, target: Tuple[float, float, float]) - None:
         self._segment_index = idx
         self._target = target
 
-    def capture(self, state, battery_level: float) -> None:
+    def capture(self, state, battery_level: float) - None:
         if state is None or self._target is None:
             return
 
@@ -102,8 +81,8 @@ class TelemetryRecorder:
         horizontal_speed = float(np.linalg.norm(velocity[:2]))
         vertical_speed = abs(float(velocity[2]))
         energy_increment = (
-            horizontal_speed * self.horiz_coef + vertical_speed * self.vert_coef
-        ) * self.poll_interval
+            horizontal_speed  self.horiz_coef + vertical_speed  self.vert_coef
+        )  self.poll_interval
         self.total_energy_j += energy_increment
 
         self.records.append(
@@ -120,8 +99,7 @@ class TelemetryRecorder:
             }
         )
 
-
-def build_arg_parser() -> argparse.ArgumentParser:
+def build_arg_parser() - argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Validate AirSim connection and drone control via scripted mission."
     )
@@ -208,20 +186,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     return parser
 
-
 def telemetry_worker(
     bridge: AirSimBridge,
     recorder: TelemetryRecorder,
     stop_event: threading.Event,
     poll_interval: float,
-) -> None:
-    """Background thread that samples telemetry until stop_event is set."""
+) - None:
+
     while not stop_event.is_set():
         state = bridge.get_drone_state()
         battery = bridge.get_battery_level()
         recorder.capture(state, battery)
         stop_event.wait(poll_interval)
-
 
 def fly_segment(
     bridge: AirSimBridge,
@@ -229,7 +205,7 @@ def fly_segment(
     target: Tuple[float, float, float],
     segment_index: int,
     args: argparse.Namespace,
-) -> dict:
+) - dict:
     recorder.start_segment(segment_index, target)
     stop_event = threading.Event()
     monitor = threading.Thread(
@@ -246,16 +222,16 @@ def fly_segment(
     }
     try:
         deadline = time.time() + args.cruise_timeout
-        while time.time() < deadline:
+        while time.time()  deadline:
             state = bridge.get_drone_state()
             if state:
                 current_pos = np.array(state.position, dtype=np.float32)
                 delta = np.array(target, dtype=np.float32) - current_pos
                 distance = float(np.linalg.norm(delta))
-                if distance <= args.position_tolerance:
+                if distance = args.position_tolerance:
                     break
                 direction = delta / max(distance, 1e-6)
-                vx, vy, vz = direction * args.cruise_speed
+                vx, vy, vz = direction  args.cruise_speed
             else:
                 vx = vy = vz = 0.0
 
@@ -266,7 +242,7 @@ def fly_segment(
                 0.0,
                 duration=args.velocity_command_duration,
             )
-            time.sleep(args.velocity_command_duration * 0.75)
+            time.sleep(args.velocity_command_duration  0.75)
 
         stop_event.wait(args.hold_time)
         summary["collision"] = bridge.check_collision()
@@ -277,28 +253,27 @@ def fly_segment(
         )
         if summary["collision"] and args.respawn_on_collision:
             logging.warning(
-                "Collision detected on segment %d, respawning...", segment_index + 1
+                "Collision detected on segment d, respawning...", segment_index + 1
             )
             try:
                 bridge.reset_drone()
                 bridge.takeoff(args.takeoff_altitude)
                 summary["respawned"] = True
             except Exception as exc:
-                logging.error("Failed to respawn after collision: %s", exc)
+                logging.error("Failed to respawn after collision: s", exc)
     finally:
         stop_event.set()
         monitor.join()
     return summary
 
-
-def run_mission(args: argparse.Namespace) -> dict:
+def run_mission(args: argparse.Namespace) - dict:
     logging.info("Connecting to AirSim...")
     bridge = AirSimBridge({"drone_name": args.vehicle_name})
     if not bridge.connect():
         raise RuntimeError("Failed to connect to AirSim. Is the simulator running?")
 
     logging.info("Arming and taking off...")
-    if not bridge.takeoff(args.takeoff_altitude, timeout=args.takeoff_altitude * 4):
+    if not bridge.takeoff(args.takeoff_altitude, timeout=args.takeoff_altitude  4):
         raise RuntimeError("Takeoff failed.")
 
     recorder = TelemetryRecorder(
@@ -309,11 +284,11 @@ def run_mission(args: argparse.Namespace) -> dict:
 
     segment_summaries = []
     for idx, waypoint in enumerate(args.waypoints):
-        logging.info("Flying segment %d -> target %s", idx + 1, waypoint)
+        logging.info("Flying segment d - target s", idx + 1, waypoint)
         summary = fly_segment(bridge, recorder, waypoint, idx, args)
         segment_summaries.append(summary)
         logging.info(
-            "Segment %d complete (collision=%s)",
+            "Segment d complete (collision=s)",
             idx + 1,
             summary["collision"],
         )
@@ -339,29 +314,27 @@ def run_mission(args: argparse.Namespace) -> dict:
             handle,
             indent=2,
         )
-    logging.info("Telemetry written to %s", log_path)
+    logging.info("Telemetry written to s", log_path)
 
     bridge.disconnect()
     return mission_summary
 
-
-def main() -> None:
+def main() - None:
     parser = build_arg_parser()
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.INFO,
-        format="[%(asctime)s] %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
+        format="[(asctime)s] (levelname)s (message)s",
+        datefmt="H:M:S",
     )
 
     summary = run_mission(args)
     logging.info(
-        "Mission complete: %d segments, %.1f J total energy, max tilt %.2f°",
+        "Mission complete: d segments, .1f J total energy, max tilt .2f",
         len(summary["segments"]),
         summary["total_energy_j"],
         summary["max_tilt_deg"],
     )
-
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Build Environment Script
-Creates and configures the complete development environment.
-Sets up conda environment, installs dependencies, and initializes project structure.
-"""
-
 import os
 import sys
 import subprocess
@@ -17,49 +10,40 @@ import shutil
 import urllib.request
 import zipfile
 
-
 class EnvironmentBuilder:
-    """
-    Complete environment builder for DroneDelivery-RL project.
-    Handles conda environment creation, dependency installation, and setup verification.
-    """
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.setup_basic_logging()
 
-        # System information
         self.system = platform.system().lower()
         self.python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
 
-        # Project paths
         self.project_root = Path(__file__).parent.parent.parent
         self.conda_env_name = "drone_delivery_rl"
 
-        # Requirements
         self.python_requirements = [
-            "torch>=2.0.0",
-            "torchvision>=0.15.0",
-            "gymnasium>=0.29.0",
-            "pybullet>=3.2.5",
-            "numpy>=1.24.0",
-            "scipy>=1.11.0",
-            "matplotlib>=3.7.0",
-            "seaborn>=0.12.0",
-            "opencv-python>=4.8.0",
-            "pillow>=10.0.0",
-            "pyyaml>=6.0",
-            "tensorboard>=2.13.0",
-            "wandb>=0.15.0",
-            "h5py>=3.9.0",
-            "pandas>=2.0.0",
-            "scikit-learn>=1.3.0",
-            "plotly>=5.15.0",
-            "tqdm>=4.65.0",
-            "psutil>=5.9.0",
+            "torch=2.0.0",
+            "torchvision=0.15.0",
+            "gymnasium=0.29.0",
+            "pybullet=3.2.5",
+            "numpy=1.24.0",
+            "scipy=1.11.0",
+            "matplotlib=3.7.0",
+            "seaborn=0.12.0",
+            "opencv-python=4.8.0",
+            "pillow=10.0.0",
+            "pyyaml=6.0",
+            "tensorboard=2.13.0",
+            "wandb=0.15.0",
+            "h5py=3.9.0",
+            "pandas=2.0.0",
+            "scikit-learn=1.3.0",
+            "plotly=5.15.0",
+            "tqdm=4.65.0",
+            "psutil=5.9.0",
         ]
 
-        # System packages (Ubuntu/Debian)
         self.system_packages = [
             "build-essential",
             "cmake",
@@ -79,79 +63,59 @@ class EnvironmentBuilder:
         self.logger.info(f"System: {self.system}, Python: {self.python_version}")
 
     def setup_basic_logging(self):
-        """Setup basic logging for environment builder."""
-        # Set UTF-8 encoding for logging on Windows
+
         import locale
 
         if platform.system() == "Windows":
-            # Use ASCII-compatible characters instead of Unicode symbols
-            pass  # Just ensuring UTF-8 support where possible
+            pass
 
-        # Create a more compatible logging setup that works across Python versions
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
 
-        # Clear any existing handlers
         logger.handlers.clear()
 
-        # Create formatters
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter("(asctime)s - (levelname)s - (message)s")
 
-        # Create console handler without encoding parameter for compatibility
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
 
-        # Create file handler with encoding (this is supported in all relevant Python versions)
         file_handler = logging.FileHandler("setup.log", encoding="utf-8")
         file_handler.setFormatter(formatter)
 
-        # Add handlers to logger
         logger.addHandler(console_handler)
         logger.addHandler(file_handler)
 
-    def build_complete_environment(self) -> bool:
-        """
-        Build complete development environment.
+    def build_complete_environment(self) - bool:
 
-        Returns:
-            True if successful, False otherwise
-        """
         self.logger.info("=== BUILDING DRONEDELIVERY-RL ENVIRONMENT ===")
 
         try:
-            # Step 1: Check system prerequisites
             self.logger.info("Step 1: Checking system prerequisites...")
             if not self._check_system_prerequisites():
                 return False
 
-            # Step 2: Install system packages
             self.logger.info("Step 2: Installing system packages...")
             if not self._install_system_packages():
                 self.logger.warning(
                     "System package installation failed (may require manual installation)"
                 )
 
-            # Step 3: Setup conda environment
             self.logger.info("Step 3: Setting up conda environment...")
             if not self._setup_conda_environment():
                 return False
 
-            # Step 4: Install Python packages
             self.logger.info("Step 4: Installing Python dependencies...")
             if not self._install_python_packages():
                 return False
 
-            # Step 5: Create project structure
             self.logger.info("Step 5: Creating project structure...")
             if not self._create_project_structure():
                 return False
 
-            # Step 6: Download required data
             self.logger.info("Step 6: Downloading required data...")
             if not self._download_required_data():
                 self.logger.warning("Data download failed (can be done manually)")
 
-            # Step 7: Verify installation
             self.logger.info("Step 7: Verifying installation...")
             if not self._verify_installation():
                 return False
@@ -165,18 +129,16 @@ class EnvironmentBuilder:
             self.logger.error(f"Environment setup failed: {e}")
             return False
 
-    def _check_system_prerequisites(self) -> bool:
-        """Check system prerequisites."""
+    def _check_system_prerequisites(self) - bool:
+
         prerequisites_ok = True
 
-        # Check Python version
-        if sys.version_info < (3, 8):
+        if sys.version_info  (3, 8):
             self.logger.error(f"Python 3.8+ required, found {sys.version_info}")
             prerequisites_ok = False
         else:
             self.logger.info(f"[OK] Python {self.python_version}")
 
-        # Check conda/mamba
         conda_available = shutil.which("conda") is not None
         mamba_available = shutil.which("mamba") is not None
 
@@ -188,7 +150,6 @@ class EnvironmentBuilder:
             package_manager = "mamba" if mamba_available else "conda"
             self.logger.info(f"[OK] {package_manager.title()} package manager")
 
-        # Check git
         if not shutil.which("git"):
             self.logger.warning("Git not found (recommended for development)")
         else:
@@ -196,11 +157,10 @@ class EnvironmentBuilder:
 
         return prerequisites_ok
 
-    def _install_system_packages(self) -> bool:
-        """Install system-level packages."""
+    def _install_system_packages(self) - bool:
+
         if self.system == "linux":
             try:
-                # Detect package manager
                 if shutil.which("apt"):
                     cmd = ["sudo", "apt", "update"]
                     subprocess.run(cmd, check=True, capture_output=True)
@@ -212,27 +172,26 @@ class EnvironmentBuilder:
                     cmd = ["sudo", "yum", "install", "-y"] + self.system_packages
                     subprocess.run(cmd, check=True, capture_output=True)
 
-                self.logger.info("✓ System packages installed")
+                self.logger.info(" System packages installed")
                 return True
 
             except subprocess.CalledProcessError as e:
                 self.logger.warning(f"System package installation failed: {e}")
                 return False
 
-        elif self.system == "darwin":  # macOS
+        elif self.system == "darwin":
             self.logger.info(
                 "macOS detected - skipping system packages (install via Homebrew if needed)"
             )
             return True
 
-        else:  # Windows
+        else:
             self.logger.info("Windows detected - skipping system packages")
             return True
 
-    def _setup_conda_environment(self) -> bool:
-        """Setup conda environment."""
+    def _setup_conda_environment(self) - bool:
+
         try:
-            # Check if conda is available
             conda_cmd = shutil.which("conda")
             if not conda_cmd:
                 self.logger.error(
@@ -240,7 +199,6 @@ class EnvironmentBuilder:
                 )
                 return False
 
-            # Check if environment already exists
             cmd = [conda_cmd, "env", "list"]
             result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
 
@@ -250,7 +208,6 @@ class EnvironmentBuilder:
                 )
                 return True
 
-            # Create new environment
             self.logger.info(f"Creating conda environment: {self.conda_env_name}")
             cmd = [
                 conda_cmd,
@@ -274,8 +231,8 @@ class EnvironmentBuilder:
             )
             return False
 
-    def _install_python_packages(self) -> bool:
-        """Install Python packages in conda environment."""
+    def _install_python_packages(self) - bool:
+
         try:
             conda_cmd = shutil.which("conda")
             if not conda_cmd:
@@ -284,7 +241,6 @@ class EnvironmentBuilder:
                 )
                 return False
 
-            # Install PyTorch first (special handling for CUDA)
             self.logger.info("Installing PyTorch...")
             pytorch_cmd = [
                 conda_cmd,
@@ -297,13 +253,12 @@ class EnvironmentBuilder:
                 "torchvision",
                 "torchaudio",
                 "--index-url",
-                "https://download.pytorch.org/whl/cpu",  # CPU version
+                "https:
             ]
             subprocess.run(pytorch_cmd, check=True, capture_output=True, shell=True)
 
-            # Install remaining packages
             self.logger.info("Installing remaining Python packages...")
-            for package in self.python_requirements[3:]:  # Skip torch packages
+            for package in self.python_requirements[3:]:
                 cmd = [
                     conda_cmd,
                     "run",
@@ -328,8 +283,8 @@ class EnvironmentBuilder:
             )
             return False
 
-    def _create_project_structure(self) -> bool:
-        """Create project directory structure."""
+    def _create_project_structure(self) - bool:
+
         try:
             directories = [
                 "data/trajectories",
@@ -348,7 +303,6 @@ class EnvironmentBuilder:
                 dir_path = self.project_root / directory
                 dir_path.mkdir(parents=True, exist_ok=True)
 
-            # Create example config files
             self._create_example_configs()
 
             self.logger.info("[OK] Project structure created")
@@ -359,10 +313,9 @@ class EnvironmentBuilder:
             return False
 
     def _create_example_configs(self):
-        """Create example configuration files."""
+
         config_dir = self.project_root / "config"
 
-        # Main configuration
         main_config = {
             "environment": {
                 "building": {
@@ -391,7 +344,6 @@ class EnvironmentBuilder:
 
             yaml.dump(main_config, f, default_flow_style=False, indent=2)
 
-        # Evaluation configuration
         eval_config = {
             "evaluation": {
                 "num_episodes": 100,
@@ -407,15 +359,13 @@ class EnvironmentBuilder:
 
             yaml.dump(eval_config, f, default_flow_style=False, indent=2)
 
-    def _download_required_data(self) -> bool:
-        """Download required data files."""
+    def _download_required_data(self) - bool:
+
         try:
             data_dir = self.project_root / "data"
 
-            # Example: Download building map data (placeholder)
             self.logger.info("Setting up example data...")
 
-            # Create example building map
             building_map = {
                 "building_config": {
                     "floors": 5,
@@ -436,15 +386,15 @@ class EnvironmentBuilder:
             with open(data_dir / "building_map.json", "w") as f:
                 json.dump(building_map, f, indent=2)
 
-            self.logger.info("✓ Example data created")
+            self.logger.info(" Example data created")
             return True
 
         except Exception as e:
             self.logger.warning(f"Data download failed: {e}")
             return False
 
-    def _verify_installation(self) -> bool:
-        """Verify installation completeness."""
+    def _verify_installation(self) - bool:
+
         try:
             conda_cmd = shutil.which("conda")
             if not conda_cmd:
@@ -453,7 +403,6 @@ class EnvironmentBuilder:
                 )
                 return False
 
-            # Test conda environment
             cmd = [
                 conda_cmd,
                 "run",
@@ -470,7 +419,6 @@ class EnvironmentBuilder:
             if "All imports successful" in result.stdout:
                 self.logger.info("[OK] Package imports verified")
 
-            # Test PyTorch
             cmd = [
                 conda_cmd,
                 "run",
@@ -485,7 +433,6 @@ class EnvironmentBuilder:
             )
             self.logger.info(f"[OK] {result.stdout.strip()}")
 
-            # Check project structure
             required_dirs = ["src", "scripts", "config", "data", "models", "results"]
             for directory in required_dirs:
                 if not (self.project_root / directory).exists():
@@ -505,10 +452,10 @@ class EnvironmentBuilder:
             return False
 
     def _print_next_steps(self):
-        """Print next steps for user."""
-        print("\n" + "=" * 60)
-        print("🎉 DRONEDELIVERY-RL ENVIRONMENT SETUP COMPLETE!")
-        print("=" * 60)
+
+        print("\n" + "="  60)
+        print(" DRONEDELIVERY-RL ENVIRONMENT SETUP COMPLETE!")
+        print("="  60)
         print("\nNEXT STEPS:")
         print("1. Activate the conda environment:")
         print(f"   conda activate {self.conda_env_name}")
@@ -522,12 +469,11 @@ class EnvironmentBuilder:
         )
         print("\n4. Generate Table 3 results:")
         print("   bash scripts/evaluation/run_full_evaluation.sh")
-        print("\n" + "=" * 60)
+        print("\n" + "="  60)
         print(
-            "📖 See scripts/evaluation/HUONG_DAN_SU_DUNG.md for detailed instructions"
+            " See scripts/evaluation/HUONG_DAN_SU_DUNG.md for detailed instructions"
         )
-        print("=" * 60)
-
+        print("="  60)
 
 def main():
     import argparse
@@ -547,11 +493,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Create builder
     builder = EnvironmentBuilder()
     builder.conda_env_name = args.env_name
 
-    # Force reinstall if requested
     if args.force:
         try:
             subprocess.run(
@@ -562,16 +506,14 @@ def main():
         except:
             pass
 
-    # Build environment
     success = builder.build_complete_environment()
 
     if success:
-        print("🎉 Setup completed successfully!")
+        print(" Setup completed successfully!")
         sys.exit(0)
     else:
-        print("❌ Setup failed. Check setup.log for details.")
+        print(" Setup failed. Check setup.log for details.")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

@@ -1,17 +1,10 @@
-"""
-A* Baseline Evaluator
-Evaluates A* + PID performance against target metrics from Table 3.
-"""
-
 import numpy as np
 from typing import Dict, List, Any, Tuple
 import time
 from dataclasses import dataclass, field
 
-
-@dataclass
+dataclass
 class EpisodeResult:
-    """Results from a single evaluation episode."""
 
     success: bool = False
     collision: bool = False
@@ -22,10 +15,8 @@ class EpisodeResult:
     ate_error: float = 0.0
     final_distance_to_goal: float = 0.0
 
-
-@dataclass
+dataclass
 class EvaluationMetrics:
-    """Aggregated evaluation metrics."""
 
     success_rate: float = 0.0
     collision_rate: float = 0.0
@@ -38,50 +29,31 @@ class EvaluationMetrics:
     std_ate: float = 0.0
     episodes_completed: int = 0
 
-    # Comparison with Table 3 targets
     target_success_rate: float = 96.0
-    target_energy_mean: float = 820.0  # A* baseline from Table 3
+    target_energy_mean: float = 820.0
     target_time_mean: float = 32.0
     target_collision_rate: float = 1.2
     target_ate_mean: float = 0.11
 
-
 class AStarEvaluator:
-    """
-    Evaluates A* + PID baseline performance.
-    Implements evaluation protocol matching Table 3 from report.
-    """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.episode_results: List[EpisodeResult] = []
 
-        # Evaluation parameters
         self.num_episodes = config.get("num_episodes", 200)
-        self.max_episode_time = config.get("max_episode_time", 300.0)  # seconds
-        self.goal_tolerance = config.get("goal_tolerance", 0.5)  # meters
+        self.max_episode_time = config.get("max_episode_time", 300.0)
+        self.goal_tolerance = config.get("goal_tolerance", 0.5)
 
-        # Energy calculation parameters
-        self.control_dt = config.get("control_dt", 0.05)  # seconds
-        self.drone_mass = config.get("drone_mass", 1.5)  # kg
+        self.control_dt = config.get("control_dt", 0.05)
+        self.drone_mass = config.get("drone_mass", 1.5)
 
     def evaluate_episode(
         self, astar_controller, pid_controller, environment
-    ) -> EpisodeResult:
-        """
-        Evaluate single episode with A* + PID baseline.
+    ) - EpisodeResult:
 
-        Args:
-            astar_controller: A* path planner
-            pid_controller: PID waypoint follower
-            environment: Simulation environment
-
-        Returns:
-            EpisodeResult with performance metrics
-        """
         result = EpisodeResult()
 
-        # Reset environment and controllers
         obs = environment.reset()
         pid_controller.reset()
 
@@ -90,11 +62,9 @@ class AStarEvaluator:
         path_length = 0.0
         previous_pos = None
 
-        # Get start and goal positions
         current_pos = environment.get_drone_position()
         goal_pos = environment.get_goal_position()
 
-        # Plan initial A* path
         obstacles = environment.get_obstacles()
         astar_controller.update_occupancy_grid(obstacles)
         path = astar_controller.plan_path(current_pos, goal_pos)
@@ -106,36 +76,29 @@ class AStarEvaluator:
 
         astar_controller.set_path(path)
 
-        # Episode loop
         step = 0
         max_steps = int(self.max_episode_time / self.control_dt)
 
-        while step < max_steps:
-            # Get current state
+        while step  max_steps:
             current_pos = environment.get_drone_position()
             current_yaw = environment.get_drone_yaw()
 
-            # Check goal reached
             distance_to_goal = np.linalg.norm(
                 np.array(current_pos) - np.array(goal_pos)
             )
-            if distance_to_goal < self.goal_tolerance:
+            if distance_to_goal  self.goal_tolerance:
                 result.success = True
                 break
 
-            # Check collision
             if environment.check_collision():
                 result.collision = True
                 break
 
-            # Get next waypoint
             waypoint = astar_controller.get_next_waypoint(current_pos)
             if waypoint is None:
-                # Reached end of path but not goal
                 result.success = False
                 break
 
-            # Replan if path becomes invalid (dynamic obstacles)
             obstacles = environment.get_obstacles()
             if not astar_controller.is_path_valid(obstacles):
                 astar_controller.update_occupancy_grid(obstacles)
@@ -145,11 +108,9 @@ class AStarEvaluator:
                     astar_controller.set_path(new_path)
                     waypoint = astar_controller.get_next_waypoint(current_pos)
                 else:
-                    # No valid path found - stop
                     result.success = False
                     break
 
-            # Compute PID control
             if waypoint:
                 vx, vy, vz, yaw_rate = pid_controller.compute_control(
                     current_pos, current_yaw, waypoint
@@ -157,18 +118,14 @@ class AStarEvaluator:
             else:
                 vx = vy = vz = yaw_rate = 0.0
 
-            # Execute action
             action = np.array([vx, vy, vz, yaw_rate])
             obs, reward, done, info = environment.step(action)
 
-            # Track energy consumption (simplified model)
             velocity_magnitude = np.linalg.norm([vx, vy, vz])
-            # Energy ∝ thrust² ∝ (acceleration + gravity_compensation)²
-            thrust_estimate = self.drone_mass * (velocity_magnitude + 9.81)
-            energy_step = (thrust_estimate**2) * self.control_dt
+            thrust_estimate = self.drone_mass  (velocity_magnitude + 9.81)
+            energy_step = (thrust_estimate2)  self.control_dt
             total_energy += energy_step
 
-            # Track path length
             if previous_pos is not None:
                 path_length += np.linalg.norm(
                     np.array(current_pos) - np.array(previous_pos)
@@ -177,7 +134,6 @@ class AStarEvaluator:
 
             step += 1
 
-        # Calculate final metrics
         result.flight_time = time.time() - start_time
         result.energy_consumed = total_energy
         result.path_length = path_length
@@ -188,35 +144,24 @@ class AStarEvaluator:
             else 0.0
         )
 
-        if step >= max_steps and not result.success and not result.collision:
+        if step = max_steps and not result.success and not result.collision:
             result.timeout = True
 
         return result
 
     def evaluate_multiple_episodes(
         self, astar_controller, pid_controller, environment, num_episodes: int = None
-    ) -> EvaluationMetrics:
-        """
-        Evaluate multiple episodes and compute aggregate metrics.
+    ) - EvaluationMetrics:
 
-        Args:
-            astar_controller: A* path planner
-            pid_controller: PID waypoint follower
-            environment: Simulation environment
-            num_episodes: Number of episodes (default: from config)
-
-        Returns:
-            EvaluationMetrics with aggregated results
-        """
         if num_episodes is None:
             num_episodes = self.num_episodes
 
         self.episode_results = []
 
-        print(f"Evaluating A* + PID baseline over {num_episodes} episodes...")
+        print(f"Evaluating A + PID baseline over {num_episodes} episodes...")
 
         for episode in range(num_episodes):
-            if episode % 50 == 0:
+            if episode  50 == 0:
                 print(f"Episode {episode}/{num_episodes}")
 
             result = self.evaluate_episode(
@@ -226,37 +171,33 @@ class AStarEvaluator:
 
         return self._compute_metrics()
 
-    def _compute_metrics(self) -> EvaluationMetrics:
-        """Compute aggregate metrics from episode results."""
+    def _compute_metrics(self) - EvaluationMetrics:
+
         if not self.episode_results:
             return EvaluationMetrics()
 
         metrics = EvaluationMetrics()
         metrics.episodes_completed = len(self.episode_results)
 
-        # Success and failure rates
         successes = [r for r in self.episode_results if r.success]
         collisions = [r for r in self.episode_results if r.collision]
         timeouts = [r for r in self.episode_results if r.timeout]
 
-        metrics.success_rate = len(successes) / len(self.episode_results) * 100
-        metrics.collision_rate = len(collisions) / len(self.episode_results) * 100
-        metrics.timeout_rate = len(timeouts) / len(self.episode_results) * 100
+        metrics.success_rate = len(successes) / len(self.episode_results)  100
+        metrics.collision_rate = len(collisions) / len(self.episode_results)  100
+        metrics.timeout_rate = len(timeouts) / len(self.episode_results)  100
 
-        # Energy metrics (only for successful episodes)
         if successes:
             energies = [r.energy_consumed for r in successes]
             metrics.mean_energy = np.mean(energies)
             metrics.std_energy = np.std(energies)
 
-        # Time metrics (only for successful episodes)
         if successes:
             times = [r.flight_time for r in successes]
             metrics.mean_time = np.mean(times)
             metrics.std_time = np.std(times)
 
-        # ATE metrics
-        ate_errors = [r.ate_error for r in self.episode_results if r.ate_error > 0]
+        ate_errors = [r.ate_error for r in self.episode_results if r.ate_error  0]
         if ate_errors:
             metrics.mean_ate = np.mean(ate_errors)
             metrics.std_ate = np.std(ate_errors)
@@ -264,60 +205,59 @@ class AStarEvaluator:
         return metrics
 
     def print_results(self, metrics: EvaluationMetrics):
-        """Print evaluation results in Table 3 format."""
-        print("\n" + "=" * 60)
-        print("A* + PID BASELINE EVALUATION RESULTS")
-        print("=" * 60)
+
+        print("\n" + "="  60)
+        print("A + PID BASELINE EVALUATION RESULTS")
+        print("="  60)
 
         print(f"Episodes completed: {metrics.episodes_completed}")
         print(
-            f"Success rate: {metrics.success_rate:.1f}% (target: {metrics.target_success_rate:.1f}%)"
+            f"Success rate: {metrics.success_rate:.1f} (target: {metrics.target_success_rate:.1f})"
         )
         print(
-            f"Collision rate: {metrics.collision_rate:.1f}% (target: {metrics.target_collision_rate:.1f}%)"
+            f"Collision rate: {metrics.collision_rate:.1f} (target: {metrics.target_collision_rate:.1f})"
         )
-        print(f"Timeout rate: {metrics.timeout_rate:.1f}%")
+        print(f"Timeout rate: {metrics.timeout_rate:.1f}")
 
-        if metrics.mean_energy > 0:
+        if metrics.mean_energy  0:
             print(
-                f"Energy consumption: {metrics.mean_energy:.0f}±{metrics.std_energy:.0f} J "
+                f"Energy consumption: {metrics.mean_energy:.0f}{metrics.std_energy:.0f} J "
                 f"(target: {metrics.target_energy_mean:.0f} J)"
             )
 
-        if metrics.mean_time > 0:
+        if metrics.mean_time  0:
             print(
-                f"Flight time: {metrics.mean_time:.0f}±{metrics.std_time:.0f} s "
+                f"Flight time: {metrics.mean_time:.0f}{metrics.std_time:.0f} s "
                 f"(target: {metrics.target_time_mean:.0f} s)"
             )
 
-        if metrics.mean_ate > 0:
+        if metrics.mean_ate  0:
             print(
-                f"ATE error: {metrics.mean_ate:.3f}±{metrics.std_ate:.3f} m "
+                f"ATE error: {metrics.mean_ate:.3f}{metrics.std_ate:.3f} m "
                 f"(target: {metrics.target_ate_mean:.3f} m)"
             )
 
-        # Comparison with targets
         print("\nPerformance vs Table 3 targets:")
         print(
-            f"  Success rate: {'✓' if metrics.success_rate >= metrics.target_success_rate else '✗'}"
+            f"  Success rate: {'' if metrics.success_rate = metrics.target_success_rate else ''}"
         )
         print(
-            f"  Collision rate: {'✓' if metrics.collision_rate <= metrics.target_collision_rate else '✗'}"
+            f"  Collision rate: {'' if metrics.collision_rate = metrics.target_collision_rate else ''}"
         )
 
-        if metrics.mean_energy > 0:
+        if metrics.mean_energy  0:
             energy_diff = metrics.mean_energy - metrics.target_energy_mean
             print(
-                f"  Energy: {'✓' if abs(energy_diff) <= 50 else '✗'} "
+                f"  Energy: {'' if abs(energy_diff) = 50 else ''} "
                 f"({energy_diff:+.0f} J difference)"
             )
 
     def save_results(self, filepath: str, metrics: EvaluationMetrics):
-        """Save evaluation results to file."""
+
         import json
 
         results_dict = {
-            "baseline": "A*_PID",
+            "baseline": "A_PID",
             "episodes_completed": metrics.episodes_completed,
             "success_rate_percent": metrics.success_rate,
             "collision_rate_percent": metrics.collision_rate,

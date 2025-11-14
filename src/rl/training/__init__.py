@@ -1,9 +1,3 @@
-"""
-Training Module
-PPO training with curriculum learning and multi-phase approach.
-Implements exact training procedure from Section 5.2.
-"""
-
 from src.rl.training.trainer import PPOTrainer, TrainingState, TrainingConfig
 from src.rl.training.curriculum_trainer import CurriculumTrainer
 from src.rl.training.hyperparameter_scheduler import HyperparameterScheduler

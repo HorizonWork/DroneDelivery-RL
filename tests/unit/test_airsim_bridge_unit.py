@@ -1,17 +1,13 @@
-"""Unit tests for AirSim bridge components"""
-
 import pytest
 from unittest.mock import patch, MagicMock
 import airsim
 from src.bridges.airsim_bridge import AirSimBridge
 
-
 class TestAirSimBridgeUnit:
-    """Unit tests for AirSimBridge class"""
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_airsim_bridge_constructor(self, mock_client):
-        """Test AirSimBridge constructor"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
@@ -21,9 +17,9 @@ class TestAirSimBridgeUnit:
         assert hasattr(bridge, "client")
         mock_client.assert_called_once()
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_connect_method(self, mock_client):
-        """Test the connect method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
@@ -32,13 +28,12 @@ class TestAirSimBridgeUnit:
 
         mock_client_instance.confirmConnection.assert_called_once()
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_position_method(self, mock_client):
-        """Test the get_position method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getMultirotorState response
         mock_state = MagicMock()
         mock_kinematics = MagicMock()
         mock_kinematics.position = MagicMock()
@@ -57,13 +52,12 @@ class TestAirSimBridgeUnit:
         assert position[1] == 2.0
         assert position[2] == 3.0
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_get_orientation_method(self, mock_client):
-        """Test the get_orientation method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        # Mock the getMultirotorState response
         mock_state = MagicMock()
         mock_kinematics = MagicMock()
         mock_kinematics.orientation = MagicMock()
@@ -79,14 +73,14 @@ class TestAirSimBridgeUnit:
 
         assert orientation is not None
         assert len(orientation) == 4
-        assert orientation[0] == 1.0  # w
-        assert orientation[1] == 0.0  # x
-        assert orientation[2] == 0.0  # y
-        assert orientation[3] == 0.0  # z
+        assert orientation[0] == 1.0
+        assert orientation[1] == 0.0
+        assert orientation[2] == 0.0
+        assert orientation[3] == 0.0
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_takeoff_method(self, mock_client):
-        """Test the takeoff method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
@@ -95,9 +89,9 @@ class TestAirSimBridgeUnit:
 
         mock_client_instance.takeoffAsync.assert_called_once()
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_land_method(self, mock_client):
-        """Test the land method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
@@ -106,9 +100,9 @@ class TestAirSimBridgeUnit:
 
         mock_client_instance.landAsync.assert_called_once()
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_move_to_position_method(self, mock_client):
-        """Test the move_to_position method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
@@ -117,9 +111,9 @@ class TestAirSimBridgeUnit:
 
         mock_client_instance.moveToPositionAsync.assert_called_once_with(10, 10, -10, 3)
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_arm_disarm_method(self, mock_client):
-        """Test the arm_disarm method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 
@@ -128,9 +122,9 @@ class TestAirSimBridgeUnit:
 
         mock_client_instance.armDisarm.assert_called_once_with(True)
 
-    @patch("airsim.MultirotorClient")
+    patch("airsim.MultirotorClient")
     def test_enable_api_control_method(self, mock_client):
-        """Test the enable_api_control method"""
+
         mock_client_instance = MagicMock()
         mock_client.return_value = mock_client_instance
 

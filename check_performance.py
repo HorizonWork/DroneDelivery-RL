@@ -3,8 +3,8 @@ import torch
 import GPUtil
 
 print("=== System Info ===")
-print(f"CPU Usage: {psutil.cpu_percent()}%")
-print(f"RAM Usage: {psutil.virtual_memory().percent}%")
+print(f"CPU Usage: {psutil.cpu_percent()}")
+print(f"RAM Usage: {psutil.virtual_memory().percent}")
 
 print("\n=== PyTorch GPU Info ===")
 print(f"CUDA Available: {torch.cuda.is_available()}")
@@ -19,7 +19,7 @@ try:
     gpus = GPUtil.getGPUs()
     for gpu in gpus:
         print(f"GPU {gpu.id}: {gpu.name}")
-        print(f"  Load: {gpu.load*100:.1f}%")
-        print(f"  Memory: {gpu.memoryUsed}/{gpu.memoryTotal} MB ({gpu.memoryUtil*100:.1f}%)")
+        print(f"  Load: {gpu.load100:.1f}")
+        print(f"  Memory: {gpu.memoryUsed}/{gpu.memoryTotal} MB ({gpu.memoryUtil100:.1f})")
 except:
     print("GPUtil not available, install: pip install gputil")
