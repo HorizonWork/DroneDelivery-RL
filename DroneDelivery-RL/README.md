@@ -6,7 +6,7 @@ Indoor Multi-Floor UAV Delivery with Energy-Aware Navigation through A, S-RRT an
 
   Research Achievement: 96.2 success rate, 78 energy savings vs baselines
 
-  Table 3 Results: Outperforms A Only, RRT+PID, and Random methods
+  Results: Outperforms A Only, RRT+PID, and Random methods
 
   Energy Efficiency: 610J average consumption (vs 2800J baseline)
 
