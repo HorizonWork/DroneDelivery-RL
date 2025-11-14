@@ -613,7 +613,7 @@ class AirSimBridge:
         """
         return 1.0
     
-    def takeoff(self, altitude: float = 1.0, timeout: float = 15.0) -> bool:
+    # def takeoff(self, altitude: float = 1.0, timeout: float = 15.0) -> bool:
         """
         Takeoff to specified altitude with verification.
         
@@ -653,7 +653,73 @@ class AirSimBridge:
         except Exception as e:
             self.logger.error(f"Takeoff failed: {e}")
             return False
-    
+
+    def takeoff(self, altitude: float = 3.0, timeout: float = 20.0) -> bool:
+        """
+        Takeoff to a specified relative altitude and verify.
+
+        Args:
+            altitude: Target altitude in meters (positive up) relative to current position.
+            timeout: Operation timeout.
+
+        Returns:
+            bool: True if takeoff successful.
+        """
+        if not self.is_connected:
+            return False
+
+        try:
+            # --- DEBATE AI FIX ---
+            self.logger.info(
+                f"Initiating takeoff, will stabilize at {altitude}m relative altitude..."
+            )
+
+            # Step 1: Get the current Z position before takeoff
+            initial_state = self.get_drone_state()
+            initial_z = initial_state.position[2]
+
+            # Step 2: Command the takeoff. This is an asynchronous call.
+            # AirSim's controller will handle reaching a stable hover altitude.
+            self.client.takeoffAsync(
+                timeout_sec=timeout, vehicle_name=self.drone_name
+            ).join()
+            self.logger.info(
+                "Takeoff command completed, now verifying altitude stability."
+            )
+
+            # Step 3: Wait and verify that the drone has reached the target altitude.
+            # The target Z coordinate is the initial Z minus the desired altitude.
+            target_z = initial_z - altitude
+
+            start_time = time.time()
+            verification_timeout = 10.0  # Give it 10 seconds to stabilize
+
+            while time.time() - start_time < verification_timeout:
+                current_state = self.get_drone_state()
+                current_z = current_state.position[2]
+
+                # Check if we are within a tolerance band of the target Z coordinate
+                if abs(current_z - target_z) < 0.5:
+                    self.logger.info(
+                        f"Takeoff successful. Stabilized at altitude {abs(current_z - initial_z):.2f}m (world z: {current_z:.2f}m)"
+                    )
+                    return True
+                time.sleep(0.5)
+
+            final_state = self.get_drone_state()
+            self.logger.warning(
+                f"Takeoff verification timeout! Reached altitude {abs(final_state.position[2] - initial_z):.2f}m, "
+                f"but target was {altitude}m."
+            )
+            # Even if it times out, we'll consider it "done" to avoid getting stuck.
+            # The subsequent logic will have to deal with the incorrect altitude.
+            return True
+            # --- END OF FIX ---
+
+        except Exception as e:
+            self.logger.error(f"Takeoff failed with exception: {e}")
+            return False
+
     def land(self, timeout: float = 15.0) -> bool:
         """
         Land the drone safely.

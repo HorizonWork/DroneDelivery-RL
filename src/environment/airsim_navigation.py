@@ -24,8 +24,8 @@ class BuildingMapper:
 
     def scan_environment(self, scan_heights=None, scan_radius=100):
         """
-        Scan environment using TELEPORT + DENSE grid sampling per floor.
-        Strategy: Multiple XY positions per floor for complete coverage.
+        Scan environment using TELEPORT at building center.
+        Strategy: Single position per floor with 8-direction scanning.
         
         Args:
             scan_heights: List of floor heights (meters above ground)
@@ -36,24 +36,15 @@ class BuildingMapper:
             # 5 floors: ground+1m, floor1, floor2, floor3, floor4
             scan_heights = [3, 9, 15, 21, 27]  # meters
         
-        # DENSE SAMPLING: Grid of scan positions per floor
-        # Cover building with 3x3 grid + center = 10 positions per floor
+        # SINGLE POSITION: Only building center
         scan_positions_per_floor = [
             (-60, 30),   # Center (building location)
-            (-70, 20),   # SW
-            (-70, 30),   # W
-            (-70, 40),   # NW
-            (-60, 40),   # N
-            (-50, 40),   # NE
-            (-50, 30),   # E
-            (-50, 20),   # SE
-            (-60, 20),   # S
         ]
         
-        print("🏗️  Phase 1: HIGH-DENSITY Floor-by-Floor Scanning (TELEPORT MODE)")
-        print(f"   📊 Strategy: {len(scan_heights)} floors × {len(scan_positions_per_floor)} positions/floor")
+        print("🏗️  Phase 1: Floor-by-Floor Scanning (TELEPORT MODE)")
+        print(f"   📊 Strategy: {len(scan_heights)} floors × 8 directions")
         print(f"   🚀 Mode: TELEPORT (instant + safe)")
-        print(f"   📐 Coverage: {len(scan_positions_per_floor) * len(scan_heights)} total scan points")
+        print(f"   📐 Coverage: {len(scan_heights) * 8} total scans")
         
         # Collect depth data from all scan positions
         all_depth_data = []
@@ -65,10 +56,10 @@ class BuildingMapper:
             print(f"{'='*60}")
             
             for pos_idx, (x, y) in enumerate(scan_positions_per_floor):
-                print(f"   📍 Position {pos_idx+1}/{len(scan_positions_per_floor)}: ({x:.0f}, {y:.0f}, {scan_height}m)")
+                print(f"   📍 Position: ({x:.0f}, {y:.0f}, {scan_height}m)")
                 
-                # 24 angles per position = 360° / 15° for complete coverage
-                angles = np.linspace(0, 360, 24, endpoint=False)
+                # 8 angles: 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°
+                angles = np.linspace(0, 360, 8, endpoint=False)
                 
                 for angle_idx, angle in enumerate(angles):
                     # TELEPORT to scanning position (INSTANT + SAFE)
@@ -103,12 +94,12 @@ class BuildingMapper:
                         all_depth_data.append((angle, depth_img, scan_height, x, y))
                         total_scans += 1
                 
-                # Progress update per position
-                print(f"      ✓ Captured 24 angles from position ({x:.0f}, {y:.0f})")
+                # Progress update per floor
+                print(f"      ✓ Captured 8 angles from position ({x:.0f}, {y:.0f})")
         
         print(f"\n{'='*60}")
         print(f"✅ SCAN COMPLETE: {total_scans} depth images captured")
-        print(f"   📊 Breakdown: {len(scan_heights)} floors × {len(scan_positions_per_floor)} positions × 24 angles")
+        print(f"   📊 Breakdown: {len(scan_heights)} floors × 8 angles")
         print(f"{'='*60}")
 
         # Process all depth data to extract obstacles
@@ -573,19 +564,19 @@ def main():
     generator = MapGenerator(resolution=1.0)
     
     try:
-        # ULTRA-DENSE FLOOR SCANNING:
+        # OPTIMIZED FLOOR SCANNING:
         # - 5 floors (every 6m)
-        # - 9 XY positions per floor (3x3 grid)
-        # - 24 angles per position (every 15°)
-        # - Pixel step=5 (4x denser)
-        # Total: 5 × 9 × 24 = 1,080 depth scans!
-        # Expected obstacles: 100K-200K points (10-20x more than before)
+        # - 1 position per floor (building center)
+        # - 8 angles per position (every 45°)
+        # - Pixel step=5 (dense sampling)
+        # Total: 5 × 8 = 40 depth scans
+        # Expected obstacles: 20K-50K points
         print("\n📊 Scanning Configuration:")
         print("   Floors: 5 (3m, 9m, 15m, 21m, 27m)")
-        print("   Positions/floor: 9 (3×3 grid coverage)")
-        print("   Angles/position: 24 (15° intervals)")
-        print("   Total scans: 1,080")
-        print("   Expected map quality: ULTRA-HIGH\n")
+        print("   Position: Building center (-60, 30)")
+        print("   Angles/floor: 8 (45° intervals)")
+        print("   Total scans: 40")
+        print("   Expected map quality: OPTIMIZED\n")
         
         _grid = generator.generate_map(
             scan_heights=[3, 9, 15, 21, 27],  # 5 floors

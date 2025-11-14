@@ -1,23 +1,23 @@
 {
   "map_name": "building_5floors",
-  "timestamp": "2025-11-13T20:35:51.130952",
+  "timestamp": "2025-11-14T11:51:15.045096",
   "resolution": 1.0,
   "bounds": {
-    "x_min": -158.06553920487977,
-    "x_max": 37.6914424287979,
-    "y_min": -66.07110447757307,
-    "y_max": 126.325911511028,
-    "z_min": -60.85839843749999,
-    "z_max": 32.08203124999999
+    "x_min": -147.64310505117774,
+    "x_max": 29.03712049504525,
+    "y_min": -59.72023122091321,
+    "y_max": 119.6318428732649,
+    "z_min": -60.49316406249999,
+    "z_max": 32.43359374999999
   },
   "dimensions": {
-    "x": 195,
-    "y": 192,
+    "x": 176,
+    "y": 179,
     "z": 92
   },
-  "total_cells": 3444480,
-  "occupied_cells": 499200,
-  "occupancy_rate": 0.14492753623188406,
+  "total_cells": 2898368,
+  "occupied_cells": 39998,
+  "occupancy_rate": 0.01380017996334489,
   "files": {
     "grid": "data/maps\\building_5floors_grid.npy",
     "obstacles": "data/maps\\building_5floors_obstacles.npy",

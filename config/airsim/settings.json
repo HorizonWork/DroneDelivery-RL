@@ -14,7 +14,7 @@
       "EnableCollisionPassthrough": false,
       "X": 0,
       "Y": 0,
-      "Z": 0,
+      "Z": -5,
       "RC": {
         "RemoteControlID": 0,
         "AllowAPIWhenDisconnected": true

@@ -1,0 +1,138 @@
+{
+  "total_episodes": 34,
+  "average_step_time": 0.40397348318781173,
+  "max_step_time": 95.14862418174744,
+  "action_statistics": {
+    "num_actions": 281,
+    "mean_action": [
+      0.022947531193494797,
+      -0.01913384348154068,
+      -0.10755856335163116,
+      -0.02266128547489643
+    ],
+    "std_action": [
+      0.5752490758895874,
+      0.5858758091926575,
+      0.606787383556366,
+      0.5640511512756348
+    ],
+    "min_action": [
+      -1.4886815547943115,
+      -1.3403016328811646,
+      -1.707400918006897,
+      -1.0
+    ],
+    "max_action": [
+      1.4612337350845337,
+      1.6527915000915527,
+      1.625969409942627,
+      1.0
+    ],
+    "component_names": [
+      "vx",
+      "vy",
+      "vz",
+      "yaw_rate"
+    ],
+    "velocity_statistics": {
+      "mean_translational_speed": 0.9604136943817139,
+      "max_translational_speed": 2.329895257949829,
+      "mean_yaw_rate": 0.4642890989780426
+    },
+    "clipping_rate": 11.743772241992882
+  },
+  "target_statistics": {
+    "total_targets": 30,
+    "targets_by_floor": {
+      "floor_1": 6,
+      "floor_2": 6,
+      "floor_3": 6,
+      "floor_4": 6,
+      "floor_5": 6
+    },
+    "targets_by_difficulty": {
+      "easy": 6,
+      "medium": 12,
+      "hard": 12
+    },
+    "current_target": null,
+    "curriculum_phase": 1,
+    "target_history_length": 13,
+    "recent_targets": [
+      "Landing_103",
+      "Landing_105",
+      "Landing_103",
+      "Landing_101",
+      "Landing_106",
+      "Landing_104",
+      "Landing_105",
+      "Landing_101",
+      "Landing_104",
+      "Landing_101"
+    ]
+  },
+  "curriculum_progress": {
+    "curriculum_enabled": true,
+    "total_progress": {
+      "timesteps_completed": 12,
+      "total_timesteps": 5000000,
+      "completion_percentage": 0.00023999999999999998
+    },
+    "current_phase": {
+      "phase_number": 1,
+      "phase_name": "single_floor_static",
+      "episodes_completed": 12,
+      "timesteps_completed": 12,
+      "success_rate": 0.0,
+      "recent_success_rate": 0.0,
+      "ready_for_next": false,
+      "phase_duration": 149.13155937194824
+    },
+    "phase_configs": {
+      "1": {
+        "name": "single_floor_static",
+        "timesteps": 1000000,
+        "active_floors": 1,
+        "dynamic_obstacles": false,
+        "difficulty": "easy",
+        "success_threshold": 0.85
+      },
+      "2": {
+        "name": "two_floors_dynamic",
+        "timesteps": 2000000,
+        "active_floors": 2,
+        "dynamic_obstacles": true,
+        "difficulty": "medium",
+        "success_threshold": 0.9
+      },
+      "3": {
+        "name": "five_floors_full",
+        "timesteps": 2000000,
+        "active_floors": 5,
+        "dynamic_obstacles": true,
+        "difficulty": "hard",
+        "success_threshold": 0.96
+      }
+    },
+    "all_phases_progress": {
+      "1": {
+        "episodes_completed": 12,
+        "timesteps_completed": 12,
+        "success_rate": 0.0,
+        "ready_for_next": false
+      },
+      "2": {
+        "episodes_completed": 0,
+        "timesteps_completed": 0,
+        "success_rate": 0.0,
+        "ready_for_next": false
+      },
+      "3": {
+        "episodes_completed": 0,
+        "timesteps_completed": 0,
+        "success_rate": 0.0,
+        "ready_for_next": false
+      }
+    }
+  }
+}

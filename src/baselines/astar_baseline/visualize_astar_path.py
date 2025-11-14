@@ -773,7 +773,7 @@ def main():
         # Test hierarchical planner with previously slow target
         result = visualizer.run_mission(
             start_name="DroneSpawn",
-            target_name="Landing_103",  # Was taking 65+ seconds with direct A*
+            target_name="Landing_201",  # Was taking 65+ seconds with direct A*
             visualize=True
         )
         
