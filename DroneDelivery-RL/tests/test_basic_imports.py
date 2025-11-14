@@ -1,27 +1,21 @@
-"""
-Basic import tests for DroneDelivery-RL project.
-These tests check that all modules can be imported without errors.
-"""
 import unittest
 import sys
 import os
 
-# Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 class TestBasicImports(unittest.TestCase):
-    """Test that all main modules can be imported without errors."""
-    
+
     def test_src_import(self):
-        """Test importing main src package."""
+
         try:
             import src
             self.assertIsNotNone(src)
         except ImportError as e:
             self.fail(f"Failed to import src: {e}")
-    
+
     def test_environment_imports(self):
-        """Test importing environment modules."""
+
         modules_to_test = [
             'src.environment',
             'src.environment.airsim_env',
@@ -34,16 +28,16 @@ class TestBasicImports(unittest.TestCase):
             'src.environment.drone_controller',
             'src.environment.world_builder'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     self.fail(f"Failed to import {module_name}: {e}")
-    
+
     def test_rl_imports(self):
-        """Test importing RL modules."""
+
         modules_to_test = [
             'src.rl',
             'src.rl.agents',
@@ -61,16 +55,16 @@ class TestBasicImports(unittest.TestCase):
             'src.rl.utils.checkpoint_manager',
             'src.rl.utils.replay_buffer'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     self.fail(f"Failed to import {module_name}: {e}")
-    
+
     def test_planning_imports(self):
-        """Test importing planning modules."""
+
         modules_to_test = [
             'src.planning',
             'src.planning.global_planner',
@@ -86,16 +80,16 @@ class TestBasicImports(unittest.TestCase):
             'src.planning.integration.path_smoother',
             'src.planning.integration.execution_monitor'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     self.fail(f"Failed to import {module_name}: {e}")
-    
+
     def test_baselines_imports(self):
-        """Test importing baseline modules."""
+
         modules_to_test = [
             'src.baselines',
             'src.baselines.astar_baseline',
@@ -110,16 +104,16 @@ class TestBasicImports(unittest.TestCase):
             'src.baselines.random_baseline.random_agent',
             'src.baselines.random_baseline.evaluator'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     self.fail(f"Failed to import {module_name}: {e}")
-    
+
     def test_bridges_imports(self):
-        """Test importing bridge modules."""
+
         modules_to_test = [
             'src.bridges',
             'src.bridges.airsim_bridge',
@@ -127,16 +121,16 @@ class TestBasicImports(unittest.TestCase):
             'src.bridges.slam_bridge',
             'src.bridges.sensor_bridge'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     self.fail(f"Failed to import {module_name}: {e}")
-    
+
     def test_localization_imports(self):
-        """Test importing localization modules."""
+
         modules_to_test = [
             'src.localization',
             'src.localization.orb_slam3_wrapper',
@@ -145,16 +139,16 @@ class TestBasicImports(unittest.TestCase):
             'src.localization.ate_calculator',
             'src.localization.coordinate_transforms'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:
                     __import__(module_name)
                 except ImportError as e:
                     self.fail(f"Failed to import {module_name}: {e}")
-    
+
     def test_utils_imports(self):
-        """Test importing utility modules."""
+
         modules_to_test = [
             'src.utils',
             'src.utils.config_loader',
@@ -166,7 +160,7 @@ class TestBasicImports(unittest.TestCase):
             'src.utils.math_utils',
             'src.utils.visualization'
         ]
-        
+
         for module_name in modules_to_test:
             with self.subTest(module=module_name):
                 try:

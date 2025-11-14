@@ -6,7 +6,7 @@ from src.localization.pose_estimator import PoseEstimator
 
 __all__ = [
     'VISLAMInterface',
-    'ORBSLAM3Wrapper', 
+    'ORBSLAM3Wrapper',
     'CoordinateTransforms',
     'ATECalculator',
     'PoseEstimator'

@@ -1,9 +1,3 @@
-"""
-System Logger
-Centralized logging system for the entire drone delivery system.
-Provides structured logging with different levels and output formats.
-"""
-
 import logging
 import logging.handlers
 import sys
@@ -15,60 +9,44 @@ import json
 import traceback
 
 class SystemLogger:
-    """
-    Advanced system logger with multiple handlers and formatters.
-    Supports file logging, console output, and structured JSON logging.
-    """
-    
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        
-        # Logger configuration
+
         self.log_level = getattr(logging, config.get('level', 'INFO').upper())
         self.log_dir = Path(config.get('log_dir', 'logs'))
-        self.max_file_size = config.get('max_file_size_mb', 10) * 1024 * 1024
+        self.max_file_size = config.get('max_file_size_mb', 10)  1024  1024
         self.backup_count = config.get('backup_count', 5)
-        
-        # Log format configuration
-        self.console_format = config.get('console_format', 
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+        self.console_format = config.get('console_format',
+            '(asctime)s - (name)s - (levelname)s - (message)s')
         self.file_format = config.get('file_format',
-            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s')
-        
-        # Component-specific loggers
+            '(asctime)s - (name)s - (levelname)s - (funcName)s:(lineno)d - (message)s')
+
         self.component_loggers = {}
-        
-        # Create log directory
+
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Initialize root logger
+
         self._setup_root_logger()
-        
-        # Initialize component loggers
+
         self._setup_component_loggers()
-        
+
         self.logger = logging.getLogger(__name__)
         self.logger.info("System Logger initialized")
-    
+
     def _setup_root_logger(self):
-        """Setup root logger configuration."""
+
         root_logger = logging.getLogger()
         root_logger.setLevel(self.log_level)
-        
-        # Clear existing handlers
+
         root_logger.handlers.clear()
-        
-        # Console handler
+
         if self.config.get('console_logging', True):
-            # Create console handler with UTF-8 encoding for Windows compatibility
             console_handler = logging.StreamHandler(sys.stdout)
-            # On Windows, ensure UTF-8 encoding to handle Unicode characters like '✓'
             if sys.platform.startswith('win'):
-                # For Windows, try to set the encoding to UTF-8
                 if hasattr(sys.stdout, 'reconfigure'):
                     sys.stdout.reconfigure(encoding='utf-8')
                 elif hasattr(console_handler, 'setStream'):
-                    # Create a new stdout stream with UTF-8 encoding
                     import io
                     utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
                     console_handler = logging.StreamHandler(utf8_stdout)
@@ -76,8 +54,7 @@ class SystemLogger:
             console_formatter = logging.Formatter(self.console_format)
             console_handler.setFormatter(console_formatter)
             root_logger.addHandler(console_handler)
-        
-        # File handler
+
         if self.config.get('file_logging', True):
             log_file = self.log_dir / 'system.log'
             file_handler = logging.handlers.RotatingFileHandler(
@@ -87,8 +64,7 @@ class SystemLogger:
             file_formatter = logging.Formatter(self.file_format)
             file_handler.setFormatter(file_formatter)
             root_logger.addHandler(file_handler)
-        
-        # Error file handler
+
         if self.config.get('error_file_logging', True):
             error_file = self.log_dir / 'errors.log'
             error_handler = logging.handlers.RotatingFileHandler(
@@ -98,28 +74,26 @@ class SystemLogger:
             error_formatter = logging.Formatter(self.file_format)
             error_handler.setFormatter(error_formatter)
             root_logger.addHandler(error_handler)
-    
+
     def _setup_component_loggers(self):
-        """Setup component-specific loggers."""
+
         components = ['localization', 'planning', 'rl', 'environment', 'utils']
-        
+
         for component in components:
             component_config = self.config.get('components', {}).get(component, {})
-            
+
             if component_config.get('enabled', True):
                 logger = self._create_component_logger(component, component_config)
                 self.component_loggers[component] = logger
-    
+
     def _create_component_logger(self, component_name: str, component_config: Dict[str, Any]):
-        """Create logger for specific component."""
+
         logger = logging.getLogger(component_name)
-        
-        # Component-specific log level
-        component_level = getattr(logging, 
+
+        component_level = getattr(logging,
             component_config.get('level', 'INFO').upper())
         logger.setLevel(component_level)
-        
-        # Component-specific file handler
+
         if component_config.get('separate_file', False):
             log_file = self.log_dir / f'{component_name}.log'
             file_handler = logging.handlers.RotatingFileHandler(
@@ -129,64 +103,57 @@ class SystemLogger:
             file_formatter = logging.Formatter(self.file_format)
             file_handler.setFormatter(file_formatter)
             logger.addHandler(file_handler)
-        
+
         return logger
-    
-    def get_logger(self, name: str) -> logging.Logger:
-        """Get logger instance for specific module."""
+
+    def get_logger(self, name: str) - logging.Logger:
+
         return logging.getLogger(name)
-    
-    def log_system_event(self, event_type: str, component: str, 
+
+    def log_system_event(self, event_type: str, component: str,
                         data: Dict[str, Any], level: str = 'INFO'):
-        """Log structured system event."""
+
         logger = self.component_loggers.get(component, logging.getLogger(component))
         log_level = getattr(logging, level.upper())
-        
-        # Create structured log entry
+
         log_entry = {
             'timestamp': datetime.now().isoformat(),
             'event_type': event_type,
             'component': component,
             'data': data
         }
-        
-        # Log as JSON string for structured parsing
+
         logger.log(log_level, f"SYSTEM_EVENT: {json.dumps(log_entry)}")
-    
+
     def log_performance_metrics(self, component: str, metrics: Dict[str, float]):
-        """Log performance metrics."""
+
         self.log_system_event('performance_metrics', component, metrics, 'INFO')
-    
-    def log_error_with_context(self, component: str, error: Exception, 
+
+    def log_error_with_context(self, component: str, error: Exception,
                               context: Dict[str, Any] = None):
-        """Log error with full context and traceback."""
+
         logger = self.component_loggers.get(component, logging.getLogger(component))
-        
+
         error_data = {
             'error_type': type(error).__name__,
             'error_message': str(error),
             'traceback': traceback.format_exc(),
             'context': context or {}
         }
-        
+
         self.log_system_event('error', component, error_data, 'ERROR')
 
 class StructuredLogger:
-    """
-    Structured logger for machine-readable logs.
-    Useful for log analysis and monitoring systems.
-    """
-    
+
     def __init__(self, component_name: str, log_file: Path):
         self.component_name = component_name
         self.log_file = log_file
-        
-        # Ensure log directory exists
+
         log_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    def log_structured(self, event_type: str, data: Dict[str, Any], 
+
+    def log_structured(self, event_type: str, data: Dict[str, Any],
                       level: str = 'INFO'):
-        """Log structured JSON entry."""
+
         log_entry = {
             'timestamp': datetime.now().isoformat(),
             'component': self.component_name,
@@ -194,22 +161,12 @@ class StructuredLogger:
             'level': level,
             'data': data
         }
-        
-        # Append to log file
+
         with open(self.log_file, 'a', encoding='utf-8') as f:
             f.write(json.dumps(log_entry, default=str) + '\n')
 
-def setup_logging(config: Dict[str, Any]) -> SystemLogger:
-    """
-    Setup system-wide logging configuration.
-    
-    Args:
-        config: Logging configuration dictionary
-        
-    Returns:
-        Configured SystemLogger instance
-    """
-    # Default configuration
+def setup_logging(config: Dict[str, Any]) - SystemLogger:
+
     default_config = {
         'level': 'INFO',
         'log_dir': 'logs',
@@ -226,24 +183,21 @@ def setup_logging(config: Dict[str, Any]) -> SystemLogger:
             'utils': {'enabled': True, 'level': 'WARNING'}
         }
     }
-    
-    # Merge with provided config
-    merged_config = {**default_config, **config}
-    
-    # Create and return system logger
+
+    merged_config = {default_config, config}
+
     return SystemLogger(merged_config)
 
-def get_logger(name: str) -> logging.Logger:
-    """Convenience function to get logger."""
+def get_logger(name: str) - logging.Logger:
+
     return logging.getLogger(name)
 
-# Exception logging decorator
 def log_exceptions(component: str):
-    """Decorator to automatically log exceptions."""
+
     def decorator(func):
-        def wrapper(*args, **kwargs):
+        def wrapper(args, kwargs):
             try:
-                return func(*args, **kwargs)
+                return func(args, kwargs)
             except Exception as e:
                 logger = logging.getLogger(component)
                 logger.error(f"Exception in {func.__name__}: {e}", exc_info=True)
