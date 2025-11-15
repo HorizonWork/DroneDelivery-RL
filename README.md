@@ -1,4 +1,4 @@
-This project implements an Indoor Multi-Floor UAV Delivery System using energy-aware navigation through A, S-RRT, and Reinforcement Learning (PPO). The system matches 100 with the final report specifications while integrating proven AirSim simulation from previous work.
+This project implements an Indoor Multi-Floor UAV Delivery System using energy-aware navigation through A, S-RRT, and Reinforcement Learning (PPO). 
 
 - 5-floor building environment with 20m40m3m per floor
 - Energy-aware PPO agent with 35-dimensional observation space
@@ -357,3 +357,4 @@ Clean separation between environment, planning, RL, and evaluation systems for e
 Proven AirSim setup from previous work, enhanced for 5-floor environment with exact spawn location.
 
 Fixed seeds, detailed configuration, and checkpoint management ensure reproducible training.
+
